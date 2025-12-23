@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, ServiceRequest, ServiceCategory, PaymentMethod, PlatformContent, Availability, Withdrawal, CategoryItem, AppNotification } from './types';
+import { User, UserRole, ServiceRequest, ServiceCategory, PaymentMethod, PlatformContent, Availability, Withdrawal, CategoryItem, AppNotification, ServiceOffer, FeeRequest } from './types';
 import { Sidebar, TopBar, ToastContainer, ToastMessage, SupportChatWidget, Footer, VerificationModal, LanguageProvider, useLanguage, LanguageSwitcher, ThemeProvider, ThemeSwitcher, CurrencyProvider, CurrencySwitcher, EditProfileModal } from './components/Shared';
 import { CustomerDashboard } from './components/CustomerDashboard';
 import { ProviderDashboard } from './components/ProviderDashboard';
@@ -12,18 +11,17 @@ import { Hammer, Users, Briefcase, LayoutDashboard, UserPlus, LogIn } from 'luci
 
 const MOCK_USERS_DATA: User[] = [
   { id: '1', name: 'Alice Johnson', email: 'alice@example.com', role: 'CUSTOMER', avatarUrl: 'https://picsum.photos/200', address: '123 Rruga e Durrësit', phone: '+355 69 123 4567', isVerified: true, notifications: [] },
-  { id: '2', name: 'Bob Smith', email: 'bob@example.com', role: 'PROVIDER', avatarUrl: 'https://picsum.photos/201', category: 'cat_plumbing', rating: 4.8, jobsCompleted: 124, hourlyRate: 85, address: '456 Rruga e Kavajës', phone: '+355 68 987 6543', availability: { workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], startTime: '08:00', endTime: '16:00' }, withdrawals: [], isVerified: true, notifications: [] },
-  { id: '3', name: 'Charlie Dave', email: 'charlie@example.com', role: 'PROVIDER', avatarUrl: 'https://picsum.photos/202', category: 'cat_electrical', rating: 4.9, jobsCompleted: 89, hourlyRate: 95, address: '789 Bulevardi Zogu I', phone: '+355 67 456 7890', availability: { workingDays: ['Mon', 'Wed', 'Fri'], startTime: '09:00', endTime: '17:00' }, withdrawals: [], isVerified: true, notifications: [] },
+  { id: '2', name: 'Bob Smith', email: 'bob@example.com', role: 'PROVIDER', avatarUrl: 'https://picsum.photos/201', category: 'cat_plumbing', rating: 4.8, jobsCompleted: 124, hourlyRate: 85, address: '456 Rruga e Kavajës', phone: '+355 68 987 6543', availability: { workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], startTime: '08:00', endTime: '16:00' }, withdrawals: [], isVerified: true, notifications: [], feeRequests: [] },
+  { id: '3', name: 'Charlie Dave', email: 'charlie@example.com', role: 'PROVIDER', avatarUrl: 'https://picsum.photos/202', category: 'cat_electrical', rating: 4.9, jobsCompleted: 89, hourlyRate: 95, address: '789 Bulevardi Zogu I', phone: '+355 67 456 7890', availability: { workingDays: ['Mon', 'Wed', 'Fri'], startTime: '09:00', endTime: '17:00' }, withdrawals: [], isVerified: true, notifications: [], feeRequests: [] },
   { id: '4', name: 'Admin User', email: 'admin@homehero.com', role: 'ADMIN', avatarUrl: 'https://picsum.photos/203', isVerified: true, notifications: [] },
-  { id: '5', name: 'Mario Rossi', email: 'mario@example.com', role: 'PROVIDER', avatarUrl: 'https://picsum.photos/204', category: 'cat_plumbing', rating: 3.5, jobsCompleted: 12, hourlyRate: 60, address: '123 Rruga e Elbasanit', phone: '+355 69 555 1234', availability: { workingDays: ['Mon', 'Tue', 'Thu'], startTime: '10:00', endTime: '18:00' }, withdrawals: [], isVerified: true, notifications: [] },
+  { id: '5', name: 'Mario Rossi', email: 'mario@example.com', role: 'PROVIDER', avatarUrl: 'https://picsum.photos/204', category: 'cat_plumbing', rating: 3.5, jobsCompleted: 12, hourlyRate: 60, address: '123 Rruga e Elbasanit', phone: '+355 69 555 1234', availability: { workingDays: ['Mon', 'Tue', 'Thu'], startTime: '10:00', endTime: '18:00' }, withdrawals: [], isVerified: true, notifications: [], feeRequests: [] },
 ];
 
 const MOCK_BOOKINGS: ServiceRequest[] = [
-  { id: 'b1', customerId: '1', customerName: 'Alice Johnson', providerId: '2', providerName: 'Bob Smith', category: 'cat_plumbing', description: 'Rrjedhje uji në lavaman', status: 'COMPLETED', date: '2023-10-15T10:00:00', price: 120, address: '123 Rruga e Durrësit', messages: [], rating: 5, review: 'Punë e shkëlqyer!', paymentStatus: 'PAID', paymentMethod: 'CARD' },
-  { id: 'b2', customerId: '1', customerName: 'Alice Johnson', category: 'cat_electrical', description: 'Instalim ventilatori', status: 'PENDING', date: '2023-10-20T14:00:00', price: 0, address: '123 Rruga e Durrësit', messages: [], paymentStatus: 'UNPAID' },
+  { id: 'b1', customerId: '1', customerName: 'Alice Johnson', providerId: '2', providerName: 'Bob Smith', category: 'cat_plumbing', description: 'Rrjedhje uji në lavaman', status: 'COMPLETED', date: '2023-10-15T10:00:00', price: 120, address: '123 Rruga e Durrësit', messages: [], rating: 5, review: 'Punë e shkëlqyer!', paymentStatus: 'PAID', paymentMethod: 'CARD', offers: [] },
+  { id: 'b2', customerId: '1', customerName: 'Alice Johnson', category: 'cat_electrical', description: 'Instalim ventilatori', status: 'PENDING', date: '2023-10-20T14:00:00', price: 0, address: '123 Rruga e Durrësit', messages: [], paymentStatus: 'UNPAID', offers: [] },
 ];
 
-// Default categories using translation keys
 const DEFAULT_CATEGORIES: CategoryItem[] = [
   { id: 'cat1', name: 'cat_plumbing', icon: '🚰', basePrice: 80 },
   { id: 'cat2', name: 'cat_electrical', icon: '⚡', basePrice: 90 },
@@ -34,7 +32,6 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
   { id: 'cat7', name: 'cat_general', icon: '🔧', basePrice: 50 },
 ];
 
-// Default content using translation keys
 const DEFAULT_CONTENT: PlatformContent = {
   aboutUs: "footer_about_content",
   termsAndConditions: "footer_terms_content",
@@ -55,20 +52,34 @@ const DEFAULT_CONTENT: PlatformContent = {
   }
 };
 
-// --- Login Screen Component ---
+const PLATFORM_FEE_FLAT = 5; // Internal base in EUR
 
 const LoginScreen: React.FC<{ 
   onLogin: (role: UserRole) => void; 
-  onRegister: (name: string, email: string, phone: string, role: UserRole) => void; 
-}> = ({ onLogin, onRegister }) => {
+  onRegister: (name: string, email: string, phone: string, role: UserRole, category?: string) => void; 
+  categories: CategoryItem[];
+}> = ({ onLogin, onRegister, categories }) => {
   const { t } = useLanguage();
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
-  const [regData, setRegData] = useState({ name: '', email: '', phone: '', role: 'CUSTOMER' as UserRole, password: '' });
+  const [regData, setRegData] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    role: 'CUSTOMER' as UserRole, 
+    password: '',
+    category: categories[0]?.name || ''
+  });
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (regData.name && regData.email && regData.role) {
-      onRegister(regData.name, regData.email, regData.phone, regData.role);
+      onRegister(
+        regData.name, 
+        regData.email, 
+        regData.phone, 
+        regData.role, 
+        regData.role === 'PROVIDER' ? regData.category : undefined
+      );
     }
   };
 
@@ -90,7 +101,6 @@ const LoginScreen: React.FC<{
           </p>
         </div>
 
-        {/* Tab Switcher */}
         <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-lg mb-6">
           <button 
             onClick={() => setMode('LOGIN')}
@@ -168,6 +178,22 @@ const LoginScreen: React.FC<{
                 <option value="PROVIDER">{t('i_want_work')}</option>
               </select>
             </div>
+
+            {regData.role === 'PROVIDER' && (
+              <div className="animate-scale-in origin-top">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('category_label')}</label>
+                <select 
+                  value={regData.category}
+                  onChange={e => setRegData({...regData, category: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white"
+                >
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.icon} {t(cat.name)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('password')}</label>
               <input 
@@ -194,8 +220,6 @@ const LoginScreen: React.FC<{
   );
 };
 
-// --- Main App Logic ---
-
 function HomeHeroApp() {
   const [users, setUsers] = useState<User[]>(MOCK_USERS_DATA);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -207,12 +231,9 @@ function HomeHeroApp() {
   const [serviceCategories, setServiceCategories] = useState<CategoryItem[]>(DEFAULT_CATEGORIES);
   const { t } = useLanguage();
 
-  // Verification State
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
-
-  // Global Edit Profile State
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
   const handleLogin = (role: UserRole) => {
@@ -231,7 +252,6 @@ function HomeHeroApp() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Centralized Notification Logic
   const notifyUser = (
     userId: string, 
     titleKey: string, 
@@ -240,11 +260,9 @@ function HomeHeroApp() {
     type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' = 'INFO', 
     relatedId?: string
   ) => {
-    // 1. Show persistent toast for immediate feedback
     const toastId = Date.now().toString() + Math.random();
     const toastType = type.toLowerCase() as 'info' | 'success' | 'warning' | 'error';
     
-    // Use t() here to show translated text immediately in the toast
     setToasts(prev => [...prev, { 
       id: toastId, 
       title: t(titleKey, params), 
@@ -254,7 +272,6 @@ function HomeHeroApp() {
     
     setTimeout(() => removeToast(toastId), 6000);
 
-    // 2. Add to User's persisted notifications
     const newNotification: AppNotification = {
       id: `n${Date.now()}-${Math.random()}`,
       titleKey,
@@ -263,7 +280,7 @@ function HomeHeroApp() {
       date: new Date().toISOString(),
       isRead: false,
       type,
-      relatedId // Pass related ID for click navigation
+      relatedId 
     };
 
     setUsers(prevUsers => prevUsers.map(u => {
@@ -276,7 +293,6 @@ function HomeHeroApp() {
       return u;
     }));
 
-    // If current user is the target, update their local state too to reflect instantly
     if (currentUser && currentUser.id === userId) {
       setCurrentUser(prev => prev ? { ...prev, notifications: [newNotification, ...(prev.notifications || [])] } : null);
     }
@@ -310,7 +326,6 @@ function HomeHeroApp() {
   const handleNotificationClick = (notification: AppNotification) => {
       if (!currentUser) return;
 
-      // Mark clicked notification as read
       setUsers(prevUsers => prevUsers.map(u => {
         if (u.id === currentUser.id) {
             const updatedNotifs = (u.notifications || []).map(n => n.id === notification.id ? {...n, isRead: true} : n);
@@ -325,7 +340,6 @@ function HomeHeroApp() {
         return { ...prev, notifications: updatedNotifs };
       });
 
-      // Navigation Logic based on relatedId and Role
       if (notification.relatedId) {
           if (currentUser.role === 'CUSTOMER') {
               if (notification.relatedId.startsWith('b')) {
@@ -335,13 +349,13 @@ function HomeHeroApp() {
               }
           } else if (currentUser.role === 'PROVIDER') {
               if (notification.relatedId.startsWith('b')) {
-                 // Determine if it's an active job or new request to send to correct tab
-                 // For simplicity, direct to schedule for active, dashboard for pending
                  setActiveTab('schedule');
               } else if (notification.relatedId.startsWith('w')) {
                   setActiveTab('earnings');
               } else if (notification.relatedId === 'schedule') {
                   setActiveTab('schedule');
+              } else if (notification.relatedId.startsWith('f')) {
+                  setActiveTab('earnings');
               }
           } else if (currentUser.role === 'ADMIN') {
               if (notification.relatedId.startsWith('w')) {
@@ -350,21 +364,28 @@ function HomeHeroApp() {
                   setActiveTab('bookings');
               } else if (notification.relatedId.startsWith('u')) {
                   setActiveTab('users');
+              } else if (notification.relatedId.startsWith('f')) {
+                  setActiveTab('finance');
               }
           }
       }
   };
 
-  const handleRegister = (name: string, email: string, phone: string, role: UserRole) => {
+  const handleRegister = (name: string, email: string, phone: string, role: UserRole, category?: string) => {
     const newUser: User = {
       id: `u${Date.now()}`,
       name,
       email,
       role,
       phone,
+      category,
       avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
       isVerified: false,
-      notifications: []
+      notifications: [],
+      feeRequests: role === 'PROVIDER' ? [] : undefined,
+      rating: role === 'PROVIDER' ? 0 : undefined,
+      jobsCompleted: role === 'PROVIDER' ? 0 : undefined,
+      hourlyRate: role === 'PROVIDER' ? (serviceCategories.find(c => c.name === category)?.basePrice || 50) : undefined
     };
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -384,7 +405,6 @@ function HomeHeroApp() {
       setPendingUser(null);
       setVerificationCode('');
       setActiveTab('dashboard');
-      // Updated to use Keys
       notifyUser(verifiedUser.id, 'notification_welcome_title', 'notification_welcome_body', {}, 'SUCCESS', 'profile');
       notifyAdmin('notification_admin_new_user', 'notification_admin_new_user_body', { role: verifiedUser.role, name: verifiedUser.name }, verifiedUser.id);
     } else {
@@ -410,21 +430,17 @@ function HomeHeroApp() {
       date: new Date().toISOString(),
       messages: [],
       paymentStatus: 'UNPAID',
+      offers: [],
       providerName: provider ? provider.name : undefined 
     };
     setBookings(prev => [newBooking, ...prev]);
     
-    // Notify Customer
     notifyUser(newBooking.customerId, 'notification_booking_received', 'notification_booking_received_body', {}, 'SUCCESS', newBooking.id);
-    
-    // Notify Admin
     notifyAdmin('notification_admin_new_booking', 'notification_admin_new_booking_body', { category: t(newBooking.category), name: newBooking.customerName }, newBooking.id);
 
     if (newBooking.providerId) {
-         // Direct booking notification
          notifyUser(newBooking.providerId, 'notification_direct_request', 'notification_direct_request_body', { name: newBooking.customerName }, 'INFO', newBooking.id);
     } else {
-        // Open booking - Notify matching providers
         const matchingProviders = users.filter(u => u.role === 'PROVIDER' && u.category === newBooking.category);
         matchingProviders.forEach(p => {
              notifyUser(p.id, 'notification_job_available_title', 'notification_job_available_body', { category: t(newBooking.category), name: newBooking.customerName }, 'INFO', newBooking.id);
@@ -445,54 +461,86 @@ function HomeHeroApp() {
     if (customerId) notifyUser(customerId, 'notification_job_accepted_title', 'notification_job_accepted_body', { name: currentUser.name }, 'SUCCESS', bookingId);
   };
 
-  const handleMakeOffer = (bookingId: string, price: number) => {
+  const handleMakeOffer = (bookingId: string, minPrice: number, maxPrice: number) => {
     if (!currentUser || currentUser.role !== 'PROVIDER') return;
     
+    const newOffer: ServiceOffer = {
+        id: `off-${Date.now()}`,
+        providerId: currentUser.id,
+        providerName: currentUser.name,
+        providerRating: currentUser.rating,
+        providerAvatar: currentUser.avatarUrl,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        timestamp: new Date().toISOString(),
+        status: 'PENDING'
+    };
+
     setBookings(prev => prev.map(b => {
       if (b.id === bookingId) {
         return { 
           ...b, 
           status: 'OFFER_MADE', 
-          price: price,
-          providerId: currentUser.id, 
-          providerName: currentUser.name 
+          offers: [...(b.offers || []), newOffer]
         };
       }
       return b;
     }));
     
-    // Notify Customer and Provider
     const booking = bookings.find(b => b.id === bookingId);
     if (booking) {
-       notifyUser(booking.customerId, 'notification_new_offer', 'notification_new_offer_body', { name: currentUser.name, amount: price }, 'INFO', bookingId);
+       notifyUser(booking.customerId, 'notification_new_offer', 'notification_new_offer_body', { name: currentUser.name, amount: `${minPrice} - ${maxPrice}` }, 'INFO', bookingId);
     }
     notifyUser(currentUser.id, 'notification_offer_sent_title', 'notification_offer_sent_body', {}, 'SUCCESS', bookingId);
   };
 
-  const handleAcceptOffer = (bookingId: string) => {
+  const handleAcceptOffer = (bookingId: string, offerId?: string) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return;
 
+    // Use offerId to find the selected offer, or use existing logic if it was a direct booking (which shouldn't have offers array but might have legacy fields)
+    const selectedOffer = booking.offers?.find(o => o.id === offerId);
+
     setBookings(prev => prev.map(b => {
       if (b.id === bookingId) {
+        if (selectedOffer) {
+          return { 
+            ...b, 
+            status: 'ACCEPTED', 
+            providerId: selectedOffer.providerId, 
+            providerName: selectedOffer.providerName, 
+            price: selectedOffer.minPrice, // Placeholder until finalization
+            offers: b.offers?.map(o => o.id === offerId ? { ...o, status: 'ACCEPTED' as const } : { ...o, status: 'REJECTED' as const })
+          };
+        }
         return { ...b, status: 'ACCEPTED' };
       }
       return b;
     }));
     
-    if (booking.providerId) notifyUser(booking.providerId, 'notification_provider_accepted_title', 'notification_provider_accepted_body', { name: booking.customerName }, 'SUCCESS', bookingId);
+    const pName = selectedOffer ? selectedOffer.providerName : booking.providerName;
+    const pId = selectedOffer ? selectedOffer.providerId : booking.providerId;
+
+    if (pId) notifyUser(pId, 'notification_provider_accepted_title', 'notification_provider_accepted_body', { name: booking.customerName }, 'SUCCESS', bookingId);
     notifyUser(booking.customerId, 'notification_offer_accepted_title', 'notification_offer_accepted_body', {}, 'SUCCESS', bookingId);
-    
-    // Legacy support for admin string (simplified for now)
-    // notifyAdmin("Contract Created", `Booking ${booking.id} accepted. Offer: ${booking.price}`, bookingId);
   };
 
-  const handleDeclineOffer = (bookingId: string) => {
+  const handleDeclineOffer = (bookingId: string, offerId?: string) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return;
 
     setBookings(prev => prev.map(b => {
       if (b.id === bookingId) {
+        if (offerId) {
+            const updatedOffers = b.offers?.map(o => o.id === offerId ? { ...o, status: 'REJECTED' as const } : o);
+            // If all offers are rejected, maybe set status back to pending
+            const anyPending = updatedOffers?.some(o => o.status === 'PENDING');
+            return { 
+                ...b, 
+                status: anyPending ? 'OFFER_MADE' as const : 'PENDING' as const,
+                offers: updatedOffers
+            };
+        }
         return { 
             ...b, 
             status: 'PENDING', 
@@ -503,10 +551,13 @@ function HomeHeroApp() {
       }
       return b;
     }));
-    if (booking.providerId) notifyUser(booking.providerId, 'notification_offer_declined_title', 'notification_offer_declined_body', {}, 'WARNING', bookingId);
+
+    const off = booking.offers?.find(o => o.id === offerId);
+    if (off) notifyUser(off.providerId, 'notification_offer_declined_title', 'notification_offer_declined_body', {}, 'WARNING', bookingId);
+    else if (booking.providerId) notifyUser(booking.providerId, 'notification_offer_declined_title', 'notification_offer_declined_body', {}, 'WARNING', bookingId);
+    
     notifyUser(booking.customerId, 'notification_offer_declined_customer_title', 'notification_offer_declined_customer_body', {}, 'INFO', bookingId);
   };
-
 
   const handleProviderDeclineJob = (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId);
@@ -514,7 +565,14 @@ function HomeHeroApp() {
 
     setBookings(prev => prev.map(b => {
         if (b.id === bookingId) {
-            return { ...b, providerId: undefined, providerName: undefined, status: 'PENDING' }; 
+            return { 
+                ...b, 
+                providerId: undefined, 
+                providerName: undefined, 
+                status: 'PENDING',
+                // Also clear specific offers from this provider if any
+                offers: b.offers?.filter(o => o.providerId !== currentUser?.id)
+            }; 
         }
         return b;
     }));
@@ -530,7 +588,7 @@ function HomeHeroApp() {
     }
   };
 
-  const handleUpdateStatus = (bookingId: string, status: ServiceRequest['status']) => {
+  const handleUpdateStatus = (bookingId: string, status: ServiceRequest['status'], finalPrice?: number) => {
     const booking = bookings.find(b => b.id === bookingId);
     
     if (booking) {
@@ -541,7 +599,14 @@ function HomeHeroApp() {
         }
     }
     
-    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
+    setBookings(prev => prev.map(b => {
+      if (b.id === bookingId) {
+        const updated: ServiceRequest = { ...b, status };
+        if (finalPrice !== undefined) updated.price = finalPrice;
+        return updated;
+      }
+      return b;
+    }));
   };
 
   const handleSendMessage = (bookingId: string, text: string) => {
@@ -594,8 +659,35 @@ function HomeHeroApp() {
      const booking = bookings.find(b => b.id === bookingId);
      if (booking) {
          notifyUser(booking.customerId, 'notification_payment_success_title', 'notification_payment_success_body', { method }, 'SUCCESS', bookingId);
-         if (booking.providerId) notifyUser(booking.providerId, 'notification_payment_received_title', 'notification_payment_received_body', { category: t(booking.category) }, 'SUCCESS', bookingId);
-         notifyAdmin('notification_admin_transaction', 'notification_admin_transaction_body', { amount: booking.price, customer: booking.customerName, provider: booking.providerName || 'N/A' }, bookingId);
+         
+         if (booking.providerId) {
+            notifyUser(booking.providerId, 'notification_payment_received_title', 'notification_payment_received_body', { category: t(booking.category) }, 'SUCCESS', bookingId);
+            
+            // Handle cash fee logic (Flat fee of 5 EUR)
+            if (method === 'CASH') {
+                const feeAmount = PLATFORM_FEE_FLAT; 
+                const newFeeRequest: FeeRequest = {
+                    id: `f${Date.now()}`,
+                    providerId: booking.providerId,
+                    bookingId: booking.id,
+                    amount: feeAmount,
+                    date: new Date().toISOString(),
+                    status: 'PENDING',
+                    bookingCategory: booking.category
+                };
+                
+                setUsers(prev => prev.map(u => {
+                    if (u.id === booking.providerId) {
+                        return { ...u, feeRequests: [...(u.feeRequests || []), newFeeRequest] };
+                    }
+                    return u;
+                }));
+                notifyAdmin('notification_admin_transaction', 'notification_admin_transaction_body', { amount: booking.price, customer: booking.customerName, provider: booking.providerName || 'N/A' }, bookingId);
+            }
+         }
+         if (method !== 'CASH') {
+            notifyAdmin('notification_admin_transaction', 'notification_admin_transaction_body', { amount: booking.price, customer: booking.customerName, provider: booking.providerName || 'N/A' }, bookingId);
+         }
      }
   };
 
@@ -610,7 +702,7 @@ function HomeHeroApp() {
   };
 
   const handleAddProvider = (providerData: any) => {
-     const newProvider: User = { ...providerData, id: `u${Date.now()}`, role: 'PROVIDER', rating: 0, jobsCompleted: 0, avatarUrl: `https://picsum.photos/seed/${Date.now()}/200`, withdrawals: [], isVerified: true, notifications: [] };
+     const newProvider: User = { ...providerData, id: `u${Date.now()}`, role: 'PROVIDER', rating: 0, jobsCompleted: 0, avatarUrl: `https://picsum.photos/seed/${Date.now()}/200`, withdrawals: [], isVerified: true, notifications: [], feeRequests: [] };
      setUsers(prev => [...prev, newProvider]);
      notifyAdmin('notification_admin_new_user', 'notification_admin_new_user_body', { role: 'Provider', name: newProvider.name }, newProvider.id);
   };
@@ -650,17 +742,21 @@ function HomeHeroApp() {
     }
   };
 
-  const handleProcessWithdrawal = (withdrawalId: string, action: 'APPROVE' | 'REJECT') => {
+  const handleProcessWithdrawal = (withdrawalId: string, action: 'APPROVE' | 'REJECT', amount?: number) => {
     let targetProviderId = '';
-    let amount = 0;
+    let finalAmount = 0;
 
     setUsers(prevUsers => prevUsers.map(user => {
       if (user.withdrawals && user.withdrawals.some(w => w.id === withdrawalId)) {
         targetProviderId = user.id;
         const updatedWithdrawals = user.withdrawals.map(w => {
             if (w.id === withdrawalId) {
-                amount = w.amount;
-                return { ...w, status: action === 'APPROVE' ? 'APPROVED' as const : 'REJECTED' as const };
+                finalAmount = amount ?? w.amount;
+                return { 
+                  ...w, 
+                  status: action === 'APPROVE' ? 'APPROVED' as const : 'REJECTED' as const,
+                  amount: finalAmount
+                };
             }
             return w;
         });
@@ -670,9 +766,129 @@ function HomeHeroApp() {
     }));
 
     if (targetProviderId) {
-        if (action === 'APPROVE') notifyUser(targetProviderId, 'notification_withdrawal_approved_title', 'notification_withdrawal_approved_body', { amount }, 'SUCCESS', withdrawalId);
-        else notifyUser(targetProviderId, 'notification_withdrawal_rejected_title', 'notification_withdrawal_rejected_body', { amount }, 'ERROR', withdrawalId);
+        if (action === 'APPROVE') notifyUser(targetProviderId, 'notification_withdrawal_approved_title', 'notification_withdrawal_approved_body', { amount: finalAmount }, 'SUCCESS', withdrawalId);
+        else notifyUser(targetProviderId, 'notification_withdrawal_rejected_title', 'notification_withdrawal_rejected_body', { amount: finalAmount }, 'ERROR', withdrawalId);
     }
+  };
+
+  const handleAdminRequestFee = (providerId: string, feeId: string) => {
+    let feeAmount = 0;
+    let category = '';
+    
+    setUsers(prevUsers => prevUsers.map(u => {
+        if (u.id === providerId && u.feeRequests) {
+            const updatedRequests = u.feeRequests.map(r => {
+                if (r.id === feeId) {
+                    feeAmount = r.amount;
+                    category = r.bookingCategory;
+                    return { ...r, status: 'REQUESTED' as const };
+                }
+                return r;
+            });
+            return { ...u, feeRequests: updatedRequests };
+        }
+        return u;
+    }));
+
+    notifyUser(providerId, 'notification_fee_request_title', 'notification_fee_request_body', { amount: feeAmount, category: t(category) }, 'WARNING', feeId);
+    
+    const admin = users.find(u => u.role === 'ADMIN');
+    if (admin) {
+        const toastId = Date.now().toString();
+        setToasts(prev => [...prev, { id: toastId, title: t('success'), message: t('fee_requested_toast'), type: 'success' }]);
+        setTimeout(() => removeToast(toastId), 4000);
+    }
+  };
+
+  const handleAdminMarkFeePaid = (providerId: string, feeId: string, status: 'PAID' | 'REJECTED') => {
+      let feeAmount = 0;
+      let category = '';
+      
+      setUsers(prevUsers => prevUsers.map(u => {
+        if (u.id === providerId && u.feeRequests) {
+            const updatedRequests = u.feeRequests.map(r => {
+                if (r.id === feeId) {
+                    feeAmount = r.amount;
+                    category = r.bookingCategory;
+                    return { ...r, status };
+                }
+                return r;
+            });
+            return { ...u, feeRequests: updatedRequests };
+        }
+        return u;
+      }));
+
+      if (status === 'REJECTED') {
+          notifyUser(providerId, 'notification_withdrawal_rejected_title', 'notification_fee_rejected_body', { amount: feeAmount, category: t(category) }, 'ERROR', feeId);
+      } else {
+          notifyUser(providerId, 'notification_payment_success_title', 'notification_payment_received_body', { category: t(category) }, 'SUCCESS', feeId);
+      }
+  };
+
+  const handleProviderPayFee = (feeId: string) => {
+    if (!currentUser) return;
+    
+    let feeAmount = 0;
+    setUsers(prevUsers => prevUsers.map(u => {
+        if (u.id === currentUser.id && u.feeRequests) {
+            const updatedRequests = u.feeRequests.map(r => {
+                if (r.id === feeId) {
+                    feeAmount = r.amount;
+                    return { ...r, status: 'VERIFYING' as const };
+                }
+                return r;
+            });
+            return { ...u, feeRequests: updatedRequests };
+        }
+        return u;
+    }));
+
+    if (currentUser && currentUser.id) {
+        setCurrentUser(prev => {
+            if (!prev || !prev.feeRequests) return prev;
+            const updatedRequests = prev.feeRequests.map(r => r.id === feeId ? { ...r, status: 'VERIFYING' as const } : r);
+            return { ...prev, feeRequests: updatedRequests };
+        });
+    }
+
+    notifyAdmin('notification_admin_fee_submitted', 'notification_admin_fee_submitted_body', { amount: feeAmount, name: currentUser.name }, feeId);
+  };
+
+  const handleProviderPayAllFees = () => {
+    if (!currentUser) return;
+    
+    let totalFeeAmount = 0;
+    setUsers(prevUsers => prevUsers.map(u => {
+        if (u.id === currentUser.id && u.feeRequests) {
+            const updatedRequests = u.feeRequests.map(r => {
+                if (r.status === 'PENDING' || r.status === 'REQUESTED') {
+                    totalFeeAmount += r.amount;
+                    return { ...r, status: 'VERIFYING' as const };
+                }
+                return r;
+            });
+            return { ...u, feeRequests: updatedRequests };
+        }
+        return u;
+    }));
+
+    if (currentUser && currentUser.id) {
+        setCurrentUser(prev => {
+            if (!prev || !prev.feeRequests) return prev;
+            const updatedRequests = prev.feeRequests.map(r => (r.status === 'PENDING' || r.status === 'REQUESTED') ? { ...r, status: 'VERIFYING' as const } : r);
+            return { ...prev, feeRequests: updatedRequests };
+        });
+    }
+
+    if (totalFeeAmount > 0) {
+        notifyAdmin('notification_admin_fee_submitted', 'notification_admin_fee_submitted_body', { amount: totalFeeAmount, name: currentUser.name }, 'all_fees');
+    }
+  };
+
+  const handleAdminSendMessageToUser = (userId: string, message: string) => {
+    notifyUser(userId, 'notification_admin_direct_title', message, {}, 'INFO');
+    setToasts(prev => [...prev, { id: Date.now().toString(), title: t('success'), message: t('message_sent_success'), type: 'success' }]);
   };
 
   const handleAddCategory = (categoryData: any) => {
@@ -687,15 +903,11 @@ function HomeHeroApp() {
 
   const handleDeleteCategory = (categoryId: string) => setServiceCategories(prev => prev.filter(c => c.id !== categoryId));
   
-  const handleSupportMessage = () => {
-      // notifyAdmin('notification_admin_support', "New support message received (mock).", 'support');
-  };
-
   if (!currentUser) {
     return (
       <CurrencyProvider>
         <ToastContainer toasts={toasts} removeToast={removeToast} />
-        <LoginScreen onLogin={handleLogin} onRegister={handleRegister} />
+        <LoginScreen onLogin={handleLogin} onRegister={handleRegister} categories={serviceCategories} />
         <VerificationModal 
           isOpen={showVerificationModal} 
           email={pendingUser?.email || ''} 
@@ -712,9 +924,8 @@ function HomeHeroApp() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <SupportChatWidget user={activeUser} onMessageSent={handleSupportMessage} />
+      <SupportChatWidget user={activeUser} />
       
-      {/* Sidebar - Pure Navigation */}
       <Sidebar 
         role={activeUser.role} 
         activeTab={activeTab} 
@@ -725,7 +936,6 @@ function HomeHeroApp() {
       />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* TopBar - Actions and Mobile Toggle */}
         <TopBar 
           onOpenSidebar={() => setIsSidebarOpen(true)}
           notifications={activeUser.notifications}
@@ -769,10 +979,13 @@ function HomeHeroApp() {
                     onDeclineJob={handleProviderDeclineJob}
                     onCancelJob={handleProviderCancelJob}
                     onMakeOffer={handleMakeOffer}
+                    onPayFee={handleProviderPayFee}
+                    onPayAllFees={handleProviderPayAllFees}
                 />
                 )}
                 {activeUser.role === 'ADMIN' && (
                 <AdminDashboard 
+                    currentUser={activeUser}
                     users={users}
                     bookings={bookings}
                     currentView={activeTab}
@@ -784,6 +997,10 @@ function HomeHeroApp() {
                     onAddCategory={handleAddCategory}
                     onUpdateCategory={handleUpdateCategory}
                     onDeleteCategory={handleDeleteCategory}
+                    onRequestFee={handleAdminRequestFee}
+                    onMarkFeePaid={handleAdminMarkFeePaid}
+                    onAdminSendMessageToUser={handleAdminSendMessageToUser}
+                    onSendMessage={handleSendMessage}
                 />
                 )}
             </div>

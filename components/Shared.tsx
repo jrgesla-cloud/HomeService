@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { 
   LayoutDashboard, 
@@ -42,7 +41,11 @@ import {
   Coins,
   Bell,
   Trash2,
-  Camera
+  Camera,
+  Navigation,
+  Loader2,
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
 import { UserRole, ServiceRequest, User as UserType, PaymentMethod, Message, PlatformContent, AppNotification } from '../types';
 import { translations, Language } from '../translations';
@@ -121,15 +124,17 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const RATE = 100;
 
   const convertPrice = (amount: number) => {
-    if (currency === 'ALL') return amount * RATE;
-    return amount;
+    const val = amount || 0;
+    if (currency === 'ALL') return val * RATE;
+    return val;
   }
 
   const formatPrice = (amount: number) => {
+    const val = amount || 0;
     if (currency === 'ALL') {
-      return `${(amount * RATE).toLocaleString('sq-AL', { maximumFractionDigits: 0 })} L`; 
+      return `${(val * RATE).toLocaleString('sq-AL', { maximumFractionDigits: 0 })} L`; 
     }
-    return `€${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `€${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
@@ -213,6 +218,34 @@ export const LanguageSwitcher: React.FC = () => {
     </button>
   );
 };
+
+// --- Location Picker Component ---
+
+interface LocationPickerProps {
+  address: string;
+  setAddress: (addr: string) => void;
+}
+
+export const LocationPicker: React.FC<LocationPickerProps> = ({ address, setAddress }) => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('address')}</label>
+      <div className="relative">
+        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+        <input 
+          required 
+          type="text" 
+          value={address} 
+          onChange={(e) => setAddress(e.target.value)} 
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all" 
+          placeholder={t('address')}
+        />
+      </div>
+    </div>
+  );
+}
 
 // --- Notification Panel ---
 
@@ -479,7 +512,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl p-6 animate-scale-in border dark:border-gray-700 overflow-y-auto max-h-[90vh]">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-md shadow-2xl p-6 animate-scale-in border dark:border-gray-700 overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('edit_profile')}</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -542,11 +575,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 interface OfferModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (price: number) => void;
+  onSubmit: (minPrice: number, maxPrice: number) => void;
+  suggestedRange?: string;
 }
 
-export const OfferModal: React.FC<OfferModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [price, setPrice] = useState('');
+export const OfferModal: React.FC<OfferModalProps> = ({ isOpen, onClose, onSubmit, suggestedRange }) => {
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const { t } = useLanguage();
   const { currency } = useCurrency();
 
@@ -554,44 +589,94 @@ export const OfferModal: React.FC<OfferModalProps> = ({ isOpen, onClose, onSubmi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(price);
-    if (amount > 0) {
-      onSubmit(amount);
-      setPrice('');
+    let min = parseFloat(minPrice);
+    let max = parseFloat(maxPrice);
+    if (min > 0 && max >= min) {
+      // FIX: Handle currency conversion for user input. Store as base currency (EUR).
+      if (currency === 'ALL') {
+          min = min / 100;
+          max = max / 100;
+      }
+      onSubmit(min, max);
+      setMinPrice('');
+      setMaxPrice('');
       onClose();
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-scale-in border dark:border-gray-700">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('enter_price')}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl p-0 animate-scale-in border dark:border-gray-700 overflow-hidden">
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg text-indigo-600 dark:text-indigo-400">
+              <DollarSign size={18} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('make_offer')}</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             <X size={20} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('enter_price')} ({currency})</label>
-            <input 
-              required
-              type="number"
-              min="0"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500"
-              autoFocus
-            />
-          </div>
-          <button 
-            type="submit"
-            className="w-full px-4 py-3 text-white bg-indigo-600 rounded-xl font-medium hover:bg-indigo-700 transition-colors"
-          >
-            {t('send')}
-          </button>
-        </form>
+        
+        <div className="p-6">
+          {suggestedRange && (
+              <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded-xl flex items-start gap-3 text-xs text-purple-700 dark:text-purple-300 shadow-sm">
+                  <Sparkles size={18} className="shrink-0 text-purple-500" />
+                  <div>
+                    <p className="font-bold mb-1">{t('ai_suggested_range')}</p>
+                    <p className="text-sm font-black opacity-90">{suggestedRange}</p>
+                  </div>
+              </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('min_price')} ({currency})</label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">{currency === 'EUR' ? '€' : 'L'}</div>
+                  <input 
+                    required
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                    className="w-full pl-8 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('max_price')} ({currency})</label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">{currency === 'EUR' ? '€' : 'L'}</div>
+                  <input 
+                    required
+                    type="number"
+                    min={minPrice || "1"}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                    className="w-full pl-8 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={!minPrice || !maxPrice || parseFloat(maxPrice) < parseFloat(minPrice)}
+              className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {t('send')}
+              <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -1156,7 +1241,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({ isOpen, em
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl p-8 animate-scale-in text-center border dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-sm shadow-2xl p-8 animate-scale-in text-center border dark:border-gray-700">
         <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-6">
           <ShieldCheck className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
         </div>
@@ -1205,9 +1290,8 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({ isOpen, em
     </div>
   );
 };
-// ... rest of the file (Toasts, SupportChat, Footer, Badge etc.) remains mostly same, just ensuring keys are used.
-// Assuming Footer, ContentModal, SupportChatWidget were already updated in previous steps to use t(), which they were.
-// Adding export for ToastContainer if it was missing from previous context but based on file it's there.
+
+// Fixed duplicate export on line 1294
 export interface ToastMessage {
   id: string;
   title: string;
@@ -1239,14 +1323,7 @@ export const ToastContainer: React.FC<{ toasts: ToastMessage[]; removeToast: (id
   )
 }
 
-// ... SupportChatWidget, ContentModal, Footer, StatCard, Badge
-// (Re-exporting unchanged components to maintain file integrity in this output block is good practice if replacing whole file, 
-// but here I will just assume the previous implementations are valid and just fix specific blocks if needed. 
-// However, since the user asked to change *every* word, I'll ensure the ContentModal and Footer also use t() correctly which they did in previous steps.)
-// I'll provide the full file content to be safe.
-
 export const SupportChatWidget: React.FC<{ user: UserType, onMessageSent?: () => void }> = ({ user, onMessageSent }) => {
-  // ... implementation same as before
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { id: 's1', senderId: 'support', senderName: 'Support Bot', text: 'Hi there! How can we help you today?', timestamp: new Date().toISOString() }
@@ -1373,7 +1450,7 @@ export const ContentModal: React.FC<{
               ))}
             </div>
           ) : (
-             <div className="whitespace-pre-wrap leading-relaxed bg-gray-50 dark:bg-gray-700/30 p-6 rounded-xl border border-gray-100 dark:border-gray-700 text-sm">
+             <div className="whitespace-pre-wrap length-relaxed bg-gray-50 dark:bg-gray-700/30 p-6 rounded-xl border border-gray-100 dark:border-gray-700 text-sm">
                 {t(content as string)}
              </div>
           )}

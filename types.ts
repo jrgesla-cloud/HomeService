@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
 
 export enum ServiceCategory {
@@ -35,6 +36,16 @@ export interface Withdrawal {
   method: string; // e.g. "Bank Transfer", "PayPal"
 }
 
+export interface FeeRequest {
+  id: string;
+  providerId: string;
+  bookingId: string;
+  amount: number;
+  date: string;
+  status: 'PENDING' | 'PAID' | 'REQUESTED' | 'REJECTED' | 'VERIFYING';
+  bookingCategory: string;
+}
+
 export interface AppNotification {
   id: string;
   titleKey: string; // Translation key for title
@@ -64,6 +75,7 @@ export interface User {
   address?: string;
   availability?: Availability;
   withdrawals?: Withdrawal[];
+  feeRequests?: FeeRequest[]; // New field for tracking cash job fees
 }
 
 export interface Message {
@@ -74,6 +86,19 @@ export interface Message {
   timestamp: string;
 }
 
+// Fixed: Added minPrice and maxPrice to match usage in biddings across the app
+export interface ServiceOffer {
+  id: string;
+  providerId: string;
+  providerName: string;
+  providerRating?: number;
+  providerAvatar?: string;
+  minPrice: number;
+  maxPrice: number;
+  timestamp: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+}
+
 export type PaymentStatus = 'UNPAID' | 'PAID';
 export type PaymentMethod = 'CARD' | 'CASH';
 
@@ -81,23 +106,26 @@ export interface ServiceRequest {
   id: string;
   customerId: string;
   customerName: string;
-  providerId?: string; // Null if not yet assigned/picked
+  providerId?: string; // Assigned provider after acceptance
   providerName?: string;
-  category: string; // Changed from ServiceCategory to string
+  category: string; 
   description: string;
   status: 'PENDING' | 'OFFER_MADE' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   date: string;
-  price: number;
+  price: number; // Final price
   address: string;
+  coordinates?: { lat: number; lng: number };
   messages: Message[];
+  offers?: ServiceOffer[]; // Support for multiple biddings
   rating?: number;
   review?: string;
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
+  aiPriceRange?: string; // Added to store suggested range from Gemini
 }
 
 export interface AIAnalysisResult {
-  category: ServiceCategory; // Keep enum for AI strictness, can map to string later
+  category: ServiceCategory; 
   reasoning: string;
   estimatedPriceRange: string;
 }

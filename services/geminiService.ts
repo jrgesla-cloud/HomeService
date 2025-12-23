@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ServiceCategory, AIAnalysisResult } from "../types";
 
@@ -17,6 +16,7 @@ const parseJsonClean = (text: string) => {
 };
 
 export const analyzeServiceRequest = async (userDescription: string, language: string = 'sq'): Promise<AIAnalysisResult | null> => {
+    // API key must be obtained from process.env.API_KEY
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
         console.warn("No API Key provided for Gemini");
@@ -24,6 +24,7 @@ export const analyzeServiceRequest = async (userDescription: string, language: s
     }
 
     try {
+        // Correct initialization with named parameter
         const ai = new GoogleGenAI({ apiKey });
         
         // Use Translation Keys for categories so the UI can translate them dynamically
@@ -40,23 +41,34 @@ export const analyzeServiceRequest = async (userDescription: string, language: s
             Return the result in JSON format.
         `;
 
+        // Updated model to gemini-3-flash-preview as per guidelines for Basic Text Tasks
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        category: { type: Type.STRING },
-                        reasoning: { type: Type.STRING },
-                        estimatedPriceRange: { type: Type.STRING },
+                        category: { 
+                            type: Type.STRING,
+                            description: "The category key of the service."
+                        },
+                        reasoning: { 
+                            type: Type.STRING,
+                            description: "Reasoning for the selection."
+                        },
+                        estimatedPriceRange: { 
+                            type: Type.STRING,
+                            description: "Estimated cost range."
+                        },
                     },
                     required: ["category", "reasoning", "estimatedPriceRange"]
                 }
             }
         });
 
+        // Use .text property directly to extract text content
         const text = response.text;
         if (!text) return null;
 
