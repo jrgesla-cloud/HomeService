@@ -37,6 +37,8 @@ export const CustomerDashboard: React.FC<Props> = ({ user, bookings, onCreateBoo
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState(user.address || '');
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
 
   const [selectedChatBooking, setSelectedChatBooking] = useState<ServiceRequest | null>(null);
   const [selectedRatingBooking, setSelectedRatingBooking] = useState<ServiceRequest | null>(null);
@@ -88,7 +90,7 @@ export const CustomerDashboard: React.FC<Props> = ({ user, bookings, onCreateBoo
 
   const handleBookingDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedCategory && description && address) {
+    if (selectedCategory && description && address && bookingDate && bookingTime) {
         setBookingStep(2); // Move to Provider Selection
     }
   };
@@ -101,6 +103,7 @@ export const CustomerDashboard: React.FC<Props> = ({ user, bookings, onCreateBoo
         description,
         price: 0, 
         address,
+        scheduledDateTime: `${bookingDate}T${bookingTime}:00`,
         providerId: providerId,
         aiPriceRange: aiSuggestion?.estimatedPriceRange // Store range for providers
     });
@@ -115,6 +118,8 @@ export const CustomerDashboard: React.FC<Props> = ({ user, bookings, onCreateBoo
     setAiSuggestion(null);
     setDescription('');
     setAddress(user.address || '');
+    setBookingDate('');
+    setBookingTime('');
   };
 
   const openBooking = (categoryName: string = '') => {
@@ -313,10 +318,10 @@ export const CustomerDashboard: React.FC<Props> = ({ user, bookings, onCreateBoo
                                         )}
                                     </div>
                                     <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">{booking.description}</p>
-                                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(booking.date).toLocaleDateString()}</span>
+                                    <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-indigo-500" /> {new Date(booking.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
                                         <span className="flex items-center gap-1">
-                                          <MapPin className="w-3 h-3" /> 
+                                          <MapPin className="w-3 h-3 text-indigo-500" /> 
                                           {booking.address}
                                         </span>
                                     </div>
@@ -573,16 +578,44 @@ export const CustomerDashboard: React.FC<Props> = ({ user, bookings, onCreateBoo
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                            <div className="space-y-3">
-                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{t('issue_description')}</label>
-                                <textarea 
-                                  required 
-                                  rows={5} 
-                                  value={description} 
-                                  onChange={(e) => setDescription(e.target.value)} 
-                                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none shadow-inner" 
-                                  placeholder={t('ai_search_placeholder')}
-                                />
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{t('issue_description')}</label>
+                                  <textarea 
+                                    required 
+                                    rows={4} 
+                                    value={description} 
+                                    onChange={(e) => setDescription(e.target.value)} 
+                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none shadow-inner" 
+                                    placeholder={t('ai_search_placeholder')}
+                                  />
+                                </div>
+                                <div className="space-y-3">
+                                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{t('preferred_schedule')}</label>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="relative">
+                                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                                      <input 
+                                        type="date" 
+                                        required
+                                        min={new Date().toISOString().split('T')[0]}
+                                        value={bookingDate}
+                                        onChange={(e) => setBookingDate(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                      />
+                                    </div>
+                                    <div className="relative">
+                                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                                      <input 
+                                        type="time" 
+                                        required
+                                        value={bookingTime}
+                                        onChange={(e) => setBookingTime(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
                             </div>
                             
                             <div className="space-y-5">

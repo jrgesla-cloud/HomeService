@@ -18,8 +18,8 @@ const MOCK_USERS_DATA: User[] = [
 ];
 
 const MOCK_BOOKINGS: ServiceRequest[] = [
-  { id: 'b1', customerId: '1', customerName: 'Alice Johnson', providerId: '2', providerName: 'Bob Smith', category: 'cat_plumbing', description: 'Rrjedhje uji në lavaman', status: 'COMPLETED', date: '2023-10-15T10:00:00', price: 120, address: '123 Rruga e Durrësit', messages: [], rating: 5, review: 'Punë e shkëlqyer!', paymentStatus: 'PAID', paymentMethod: 'CARD', offers: [] },
-  { id: 'b2', customerId: '1', customerName: 'Alice Johnson', category: 'cat_electrical', description: 'Instalim ventilatori', status: 'PENDING', date: '2023-10-20T14:00:00', price: 0, address: '123 Rruga e Durrësit', messages: [], paymentStatus: 'UNPAID', offers: [] },
+  { id: 'b1', customerId: '1', customerName: 'Alice Johnson', providerId: '2', providerName: 'Bob Smith', category: 'cat_plumbing', description: 'Rrjedhje uji në lavaman', status: 'COMPLETED', date: '2023-10-15T10:00:00', scheduledDateTime: '2023-10-16T11:00:00', price: 120, address: '123 Rruga e Durrësit', messages: [], rating: 5, review: 'Punë e shkëlqyer!', paymentStatus: 'PAID', paymentMethod: 'CARD', offers: [] },
+  { id: 'b2', customerId: '1', customerName: 'Alice Johnson', category: 'cat_electrical', description: 'Instalim ventilatori', status: 'PENDING', date: '2023-10-20T14:00:00', scheduledDateTime: '2023-10-22T09:00:00', price: 0, address: '123 Rruga e Durrësit', messages: [], paymentStatus: 'UNPAID', offers: [] },
 ];
 
 const DEFAULT_CATEGORIES: CategoryItem[] = [
@@ -1008,25 +1008,26 @@ function HomeHeroApp() {
           <Footer content={platformContent} />
         </main>
       </div>
-
+      
       <EditProfileModal 
-          isOpen={showEditProfileModal} 
-          onClose={() => setShowEditProfileModal(false)} 
-          user={activeUser} 
-          onSave={(u) => { handleUpdateUser(u); setShowEditProfileModal(false); }} 
+        isOpen={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+        user={activeUser}
+        onSave={handleUpdateUser}
       />
     </div>
   );
 }
 
+// Fixed: Correct component structure with Context Providers and Default Export
 export default function App() {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
+    <ThemeProvider>
+      <LanguageProvider>
         <CurrencyProvider>
           <HomeHeroApp />
         </CurrencyProvider>
-      </ThemeProvider>
-    </LanguageProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }

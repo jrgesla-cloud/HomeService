@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
 
 export enum ServiceCategory {
@@ -111,7 +110,8 @@ export interface ServiceRequest {
   category: string; 
   description: string;
   status: 'PENDING' | 'OFFER_MADE' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  date: string;
+  date: string; // Creation date
+  scheduledDateTime: string; // User preferred time for service
   price: number; // Final price
   address: string;
   coordinates?: { lat: number; lng: number };

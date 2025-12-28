@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, ServiceRequest, ServiceCategory, PlatformContent, Withdrawal, CategoryItem, FeeRequest } from '../types';
 import { Badge, StatCard, StarRating, useLanguage, useCurrency, ChatModal } from './Shared';
-import { Users, Briefcase, Activity, TrendingUp, Plus, X, Search, MapPin, DollarSign, Mail, Save, Trash2, Edit2, Filter, Calendar, User as UserIcon, Clock, CheckCircle, XCircle, CreditCard, Receipt, FileText, ShieldCheck, Lock, Phone, Globe, HelpCircle, BellRing, HandCoins, MessageSquare, Send, AlertTriangle } from 'lucide-react';
+import { Users, Briefcase, Activity, TrendingUp, Plus, X, Search, MapPin, DollarSign, Mail, Save, Trash2, Edit2, Filter, Calendar, User as UserIcon, Clock, CheckCircle, XCircle, CreditCard, Receipt, FileText, ShieldCheck, Lock, Phone, Globe, HelpCircle, BellRing, HandCoins, MessageSquare, Send, AlertTriangle, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 
 interface Props {
@@ -28,7 +28,7 @@ const PLATFORM_FEE_FLAT = 5;
 
 const AddProviderModal: React.FC<{ isOpen: boolean, onClose: () => void, onSubmit: (d: any) => void, categories: CategoryItem[] }> = ({ isOpen, onClose, onSubmit, categories }) => {
     const { t } = useLanguage();
-    const [formData, setFormData] = useState({ name: '', email: '', category: categories[0]?.name || 'cat_general', hourlyRate: 50, address: '', bio: '' });
+    const [formData, setFormData] = useState({ name: '', email: '', category: categories[0]?.name || 'cat_general', hourlyRate: 50, address: '', bio: '', phone: '' });
 
     if (!isOpen) return null;
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSubmit({ ...formData, role: 'PROVIDER' }); onClose(); };
@@ -39,7 +39,10 @@ const AddProviderModal: React.FC<{ isOpen: boolean, onClose: () => void, onSubmi
                 <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('add_provider')}</h3><button onClick={onClose} className="text-gray-500 dark:text-gray-400"><X size={20} /></button></div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input required placeholder={t('full_name')} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                    <input required placeholder={t('email')} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
+                    <div className="grid grid-cols-2 gap-4">
+                        <input required type="email" placeholder={t('email')} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
+                        <input required type="tel" placeholder={t('phone')} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
+                    </div>
                     <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">{categories.map(c => <option key={c.id} value={c.name}>{t(c.name)}</option>)}</select>
                     <input required type="number" placeholder={`${t('rate_service')} (€)`} value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: Number(e.target.value)})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
                     <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700">{t('submit')}</button>
@@ -327,6 +330,7 @@ export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, 
                             <tr>
                                 <th className="px-6 py-4">{t('user')}</th>
                                 <th className="px-6 py-4">{t('role')}</th>
+                                <th className="px-6 py-4">Contact Details</th>
                                 <th className="px-6 py-4">{t('details')}</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
@@ -345,6 +349,26 @@ export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, 
                                     </td>
                                     <td className="px-6 py-4"><Badge status={u.role} /></td>
                                     <td className="px-6 py-4">
+                                        <div className="flex flex-col gap-1.5">
+                                            {u.phone && (
+                                                <a href={`tel:${u.phone}`} className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                                                    <Phone size={14} />
+                                                    {u.phone}
+                                                </a>
+                                            )}
+                                            <a href={`mailto:${u.email}`} className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:underline text-xs">
+                                                <Mail size={14} />
+                                                {u.email}
+                                            </a>
+                                            {u.address && (
+                                                <div className="flex items-start gap-2 text-gray-400 text-[11px] leading-tight">
+                                                    <MapPin size={14} className="shrink-0" />
+                                                    {u.address}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
                                         {u.role === 'PROVIDER' ? (
                                             <div className="flex flex-col gap-1">
                                                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 w-fit">{t(u.category || 'cat_general')}</span>
@@ -353,7 +377,12 @@ export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, 
                                         ) : <span className="text-gray-400">-</span>}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button onClick={() => setUserToMessage(u)} className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"><MessageSquare size={18} /></button>
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => setUserToMessage(u)} className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors" title="Send Internal Message"><MessageSquare size={18} /></button>
+                                            {u.phone && (
+                                                <a href={`tel:${u.phone}`} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-full transition-colors" title="Call User"><Phone size={18} /></a>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -625,14 +654,14 @@ export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, 
                                                 {(fr.status === 'PENDING' || fr.status === 'REQUESTED' || fr.status === 'VERIFYING') && onMarkFeePaid && (
                                                     <>
                                                         <button 
-                                                            onClick={() => onMarkFeePaid(fr.providerId, fr.id, 'PAID')}
+                                                            onClick={() => onMarkFeePaid!(fr.providerId, fr.id, 'PAID')}
                                                             className="p-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg hover:bg-green-200 transition-colors"
                                                             title={t('confirm')}
                                                         >
                                                             <CheckCircle size={16} />
                                                         </button>
                                                         <button 
-                                                            onClick={() => onMarkFeePaid(fr.providerId, fr.id, 'REJECTED')}
+                                                            onClick={() => onMarkFeePaid!(fr.providerId, fr.id, 'REJECTED')}
                                                             className="p-1.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 transition-colors"
                                                             title={t('REJECTED')}
                                                         >
@@ -683,6 +712,7 @@ export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, 
                             <tr>
                                 <th className="px-6 py-4">{t('job_info')}</th>
                                 <th className="px-6 py-4">{t('participants')}</th>
+                                <th className="px-6 py-4">{t('preferred_schedule')}</th>
                                 <th className="px-6 py-4">{t('status')}</th>
                                 <th className="px-6 py-4">{t('offer_price')}</th>
                                 <th className="px-6 py-4 text-emerald-600">{t('est_comm')}</th>
@@ -691,22 +721,52 @@ export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, 
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {filteredBookings.map(b => (
-                                <tr key={b.id} className="dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            {filteredBookings.map(b => {
+                                const customer = users.find(u => u.id === b.customerId);
+                                const provider = users.find(u => u.id === b.providerId);
+                                
+                                return (
+                                <tr key={b.id} className="dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                     <td className="px-6 py-4 max-w-xs">
                                         <div className="font-bold text-gray-900 dark:text-white">{t(b.category)}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{b.description}</div>
-                                        <div className="text-xs text-gray-400 mt-1">{new Date(b.date).toLocaleDateString()}</div>
+                                        <div className="text-[10px] text-gray-400 mt-1 uppercase">Created: {new Date(b.date).toLocaleDateString()}</div>
+                                        {b.address && (
+                                            <div className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
+                                                <MapPin size={10} /> {b.address}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 w-fit">{t('customer_label')}: {b.customerName}</span>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 w-fit">{t('customer_label')}: {b.customerName}</span>
+                                                {customer?.phone && (
+                                                    <a href={`tel:${customer.phone}`} className="text-[10px] text-gray-400 hover:text-indigo-600 flex items-center gap-1 mt-0.5 ml-2">
+                                                        <Phone size={10} /> {customer.phone}
+                                                    </a>
+                                                )}
+                                            </div>
+                                            
                                             {b.providerName ? (
-                                                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 w-fit">{t('provider_label')}: {b.providerName}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 w-fit">{t('provider_label')}: {b.providerName}</span>
+                                                    {provider?.phone && (
+                                                        <a href={`tel:${provider.phone}`} className="text-[10px] text-gray-400 hover:text-indigo-600 flex items-center gap-1 mt-0.5 ml-2">
+                                                            <Phone size={10} /> {provider.phone}
+                                                        </a>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <span className="text-xs text-gray-400 italic">{t('no_provider')}</span>
                                             )}
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <div className="flex flex-col text-xs">
+                                        <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1"><Calendar size={12}/> {new Date(b.scheduledDateTime).toLocaleDateString()}</span>
+                                        <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><Clock size={12}/> {new Date(b.scheduledDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                      </div>
                                     </td>
                                     <td className="px-6 py-4"><Badge status={b.status} /></td>
                                     <td className="px-6 py-4 font-medium">
@@ -734,10 +794,10 @@ export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, 
                                         </button>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                             {filteredBookings.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                         {t('no_bookings')}
                                     </td>
                                 </tr>

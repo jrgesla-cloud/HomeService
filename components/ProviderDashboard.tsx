@@ -258,7 +258,6 @@ export const ProviderDashboard: React.FC<Props> = ({ user, bookings, onUpdateSta
                                         if (active && payload && payload.length) {
                                             const grossVal = payload[0]?.value ?? 0;
                                             const netVal = payload[1]?.value ?? 0;
-                                            const symbol = currency === 'ALL' ? ' L' : ' €';
                                             const prefix = currency === 'EUR' ? '€' : '';
                                             const suffix = currency === 'ALL' ? ' L' : '';
                                             return (
@@ -437,11 +436,18 @@ export const ProviderDashboard: React.FC<Props> = ({ user, bookings, onUpdateSta
                     {activeJobs.map(job => (
                         <div key={job.id} className="p-6">
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-3 mb-2"><h4 className="text-lg font-bold text-gray-900 dark:text-white">{job.customerName}</h4><Badge status={job.status} /></div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">{job.customerName}</h4>
+                                      <Badge status={job.status} />
+                                    </div>
+                                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-3">
+                                      <Clock size={16} />
+                                      {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                    </div>
                                     <p className="text-gray-600 dark:text-gray-400 mb-2">{job.description}</p>
                                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                                      <MapPin size={14} />
+                                      <MapPin size={14} className="text-indigo-500" />
                                       {job.address}
                                     </div>
                                 </div>
@@ -516,6 +522,10 @@ export const ProviderDashboard: React.FC<Props> = ({ user, bookings, onUpdateSta
                                 <h4 className="font-semibold text-gray-900 dark:text-white">{job.customerName}</h4>
                                 <Badge status={job.status} />
                             </div>
+                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs mb-3">
+                              <Clock size={14} />
+                              {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                            </div>
                             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{job.description}</p>
                             <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
                                <MapPin size={12} />
@@ -562,6 +572,10 @@ export const ProviderDashboard: React.FC<Props> = ({ user, bookings, onUpdateSta
                                 <h4 className="font-semibold text-gray-900 dark:text-white">{job.customerName}</h4>
                                 <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold uppercase">{t('offer_sent')}</span>
                             </div>
+                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] mb-2 uppercase">
+                              <Clock size={12} />
+                              {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                            </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{job.description}</p>
                             <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
                                <MapPin size={12} /> {job.address}
@@ -585,6 +599,10 @@ export const ProviderDashboard: React.FC<Props> = ({ user, bookings, onUpdateSta
                                     </div>
                                 )}
                             </div>
+                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs mb-3">
+                              <Clock size={14} />
+                              {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                            </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{job.description}</p>
                             <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
                                <MapPin size={12} />
@@ -606,6 +624,10 @@ export const ProviderDashboard: React.FC<Props> = ({ user, bookings, onUpdateSta
                   <div className="flex justify-between items-start mb-2">
                       <h4 className="font-semibold text-gray-900 dark:text-white">{job.customerName}</h4>
                       <Badge status={job.status} />
+                  </div>
+                  <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs mb-3">
+                      <Clock size={14} />
+                      {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{job.description}</p>
                   <div className="flex items-center justify-between">

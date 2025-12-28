@@ -80,6 +80,9 @@ export const translations = {
     edit_profile: 'Edito Profilin',
     ai_suggested_range: 'Çmimi i rekomanduar (AI):',
     select_service_desc: 'Zgjidhni llojin e shërbimit që ju nevojitet nga tabela më poshtë',
+    preferred_schedule: 'Orari i preferuar',
+    preferred_date: 'Data e preferuar',
+    preferred_time: 'Ora e preferuar',
 
     // Financial
     financial_overview: 'Përmbledhje Financiare',
@@ -393,6 +396,9 @@ export const translations = {
     edit_profile: 'Edit Profile',
     ai_suggested_range: 'AI Recommended Price:',
     select_service_desc: 'Select the type of service you need from the table below',
+    preferred_schedule: 'Preferred Schedule',
+    preferred_date: 'Preferred Date',
+    preferred_time: 'Preferred Time',
 
     // Financial
     financial_overview: 'Financial Overview',
