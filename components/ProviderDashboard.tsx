@@ -1,9 +1,44 @@
 
-import React, { useState, useMemo } from 'react';
-import { User, ServiceRequest, Availability, FeeRequest } from '../types';
-import { Badge, StatCard, ChatModal, StarRating, WithdrawalModal, ConfirmationModal, OfferModal, useLanguage, useCurrency } from './Shared';
-import { Briefcase, DollarSign, Star, Clock, MapPin, CheckCircle, MessageSquare, CreditCard, Banknote, Calendar, Wallet, TrendingUp, Settings, X, Save, ArrowUpRight, AlertCircle, Navigation, Info, Trash2, ChevronUp, ChevronDown, List, Receipt, HandCoins, BellRing, Sparkles, Loader2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import React, { useState, useMemo, useEffect } from 'react';
+import { User, ServiceRequest, Availability, Message } from '../types';
+import { Badge, StatCard, ChatModal, WithdrawalModal, useLanguage, useCurrency, MessagesView, OfferModal, JobCompletionModal, ProfileView, EditProfileModal } from './Shared';
+import { 
+  Briefcase, 
+  DollarSign, 
+  Star, 
+  Clock, 
+  MapPin, 
+  MessageSquare, 
+  Calendar as CalendarIcon, 
+  Wallet, 
+  TrendingUp, 
+  Settings, 
+  Receipt, 
+  List, 
+  ChevronRight, 
+  CheckCircle2, 
+  PlayCircle, 
+  Info, 
+  Check, 
+  Play, 
+  ChevronLeft, 
+  Zap, 
+  ShieldCheck, 
+  AlertCircle, 
+  X, 
+  Clock3,
+  ArrowUpRight,
+  ArrowDownRight,
+  CreditCard,
+  History,
+  Activity,
+  ArrowRight,
+  Banknote,
+  Globe,
+  MoreVertical,
+  Navigation
+} from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 interface Props {
   user: User;
@@ -12,671 +47,387 @@ interface Props {
   onUpdateStatus: (bookingId: string, status: ServiceRequest['status'], price?: number) => void;
   onAcceptJob: (bookingId: string) => void;
   onSendMessage: (bookingId: string, text: string) => void;
+  onMarkRead: (bookingId: string) => void;
   onUpdateAvailability: (availability: Availability) => void;
   onWithdrawFunds: (amount: number, method: string) => void;
   onDeclineJob: (bookingId: string) => void;
   onCancelJob: (bookingId: string) => void;
   onMakeOffer: (bookingId: string, min: number, max: number) => void;
-  onPayFee?: (feeId: string) => void;
-  onPayAllFees?: () => void;
+  onUpdateUser: (user: User) => void;
+  onSettleFee?: (feeId: string) => void;
 }
 
-const PLATFORM_FEE_FLAT = 5;
+const PLATFORM_FEE_FLAT = 500;
 
-const AvailabilityModal: React.FC<{ isOpen: boolean, onClose: () => void, currentAvailability?: Availability, onSave: (a: Availability) => void }> = ({ isOpen, onClose, currentAvailability, onSave }) => {
-  const [workingDays, setWorkingDays] = useState<string[]>(currentAvailability?.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-  const [startTime, setStartTime] = useState(currentAvailability?.startTime || '09:00');
-  const [endTime, setEndTime] = useState(currentAvailability?.endTime || '17:00');
+export const ProviderDashboard: React.FC<Props> = ({ 
+  user, 
+  bookings, 
+  onUpdateStatus, 
+  onAcceptJob, 
+  onSendMessage, 
+  onMarkRead, 
+  onUpdateAvailability, 
+  onWithdrawFunds, 
+  onDeclineJob, 
+  onCancelJob, 
+  onMakeOffer, 
+  currentView, 
+  onUpdateUser,
+  onSettleFee
+}) => {
   const { t } = useLanguage();
-
-  if (!isOpen) return null;
-  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  const toggleDay = (day: string) => {
-    if (workingDays.includes(day)) setWorkingDays(workingDays.filter(d => d !== day));
-    else setWorkingDays([...workingDays, day]);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-md shadow-2xl p-6 animate-scale-in border dark:border-gray-700">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><Clock className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />{t('manage_availability')}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X size={20} /></button>
-        </div>
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('working_days')}</label>
-            <div className="flex flex-wrap gap-2">
-              {daysOfWeek.map(day => (
-                <button key={day} onClick={() => toggleDay(day)} className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${workingDays.includes(day) ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{day}</button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('start_time')}</label><input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('end_time')}</label><input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-          </div>
-          <button onClick={() => { onSave({ workingDays, startTime, endTime }); onClose(); }} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-indigo-500/20"><Save size={18} />{t('save')}</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const CompletionModal: React.FC<{ isOpen: boolean, onClose: () => void, onConfirm: (price: number) => void, initialPrice?: number }> = ({ isOpen, onClose, onConfirm, initialPrice }) => {
-    const { t } = useLanguage();
-    const { currency, convertPrice } = useCurrency();
-    // Convert initialPrice if needed for display
-    const [price, setPrice] = useState(initialPrice ? convertPrice(initialPrice).toString() : '');
-
-    if (!isOpen) return null;
-
-    const handleSubmit = () => {
-        let finalPrice = parseFloat(price) || 0;
-        if (finalPrice > 0) {
-            // FIX: Convert input back to base currency (EUR) before submitting
-            if (currency === 'ALL') {
-                finalPrice = finalPrice / 100;
-            }
-            onConfirm(finalPrice);
-            onClose();
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-scale-in border dark:border-gray-700">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('complete_job')}</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X size={20} /></button>
-                </div>
-                <div className="mb-6">
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{t('enter_final_price')}</p>
-                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">{t('final_price')} ({currency})</label>
-                    <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">{currency === 'EUR' ? '€' : 'L'}</span>
-                        <input 
-                            type="number" 
-                            value={price} 
-                            onChange={(e) => setPrice(e.target.value)}
-                            className="w-full pl-8 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
-                            placeholder="0.00"
-                        />
-                    </div>
-                </div>
-                <button 
-                    onClick={handleSubmit} 
-                    disabled={!price || parseFloat(price) <= 0}
-                    className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-all shadow-lg shadow-green-500/20 disabled:opacity-50"
-                >
-                    {t('confirm_completion')}
-                </button>
-            </div>
-        </div>
-    );
-};
-
-export const ProviderDashboard: React.FC<Props> = ({ user, bookings, onUpdateStatus, onAcceptJob, onSendMessage, onUpdateAvailability, onWithdrawFunds, onDeclineJob, onCancelJob, onMakeOffer, currentView, onPayFee, onPayAllFees }) => {
-  const { t } = useLanguage();
-  const { formatPrice, convertPrice, currency } = useCurrency();
+  const { formatPrice } = useCurrency();
+  
+  // Modals
   const [selectedChatBooking, setSelectedChatBooking] = useState<ServiceRequest | null>(null);
-  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
-  const [bookingToCancel, setBookingToCancel] = useState<string | null>(null);
-  const [jobToRefuse, setJobToRefuse] = useState<string | null>(null);
   const [offerBookingId, setOfferBookingId] = useState<string | null>(null);
-  const [bookingToComplete, setBookingToComplete] = useState<ServiceRequest | null>(null);
+  const [completionBooking, setCompletionBooking] = useState<ServiceRequest | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  const myJobs = bookings.filter(b => b.providerId === user.id);
-  const activeJobs = myJobs.filter(b => b.status === 'ACCEPTED' || b.status === 'IN_PROGRESS');
+  // Calendar State
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
-  const availableDirectRequests = bookings.filter(b => 
-    (b.status === 'PENDING' || b.status === 'OFFER_MADE') && 
-    b.providerId === user.id
-  );
+  // Generate date ribbon (14 days)
+  const dateRibbon = useMemo(() => {
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, []);
 
-  const availablePoolJobs = bookings.filter(b => 
-    b.status === 'PENDING' && 
-    !b.providerId && 
-    b.category === user.category
-  );
+  // Data Filtering
+  const myJobs = useMemo(() => bookings.filter(b => b.providerId === user.id), [bookings, user.id]);
+  const activeJobs = useMemo(() => myJobs.filter(b => b.status === 'ACCEPTED' || b.status === 'IN_PROGRESS'), [myJobs]);
+  
+  const jobsForSelectedDate = useMemo(() => {
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    return activeJobs.filter(j => j.scheduledDateTime.startsWith(dateStr))
+      .sort((a, b) => new Date(a.scheduledDateTime).getTime() - new Date(b.scheduledDateTime).getTime());
+  }, [activeJobs, selectedDate]);
 
-  const myPendingOffers = bookings.filter(b => 
-    b.status === 'OFFER_MADE' && 
-    b.offers?.some(o => o.providerId === user.id && o.status === 'PENDING')
-  );
+  const poolJobs = useMemo(() => {
+    return bookings.filter(b => 
+      b.status === 'PENDING' && 
+      (b.providerId === user.id || (!b.providerId && b.category === user.category))
+    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [bookings, user.id, user.category]);
 
-  const paidJobs = myJobs.filter(j => j.status === 'COMPLETED' && j.paymentStatus === 'PAID');
-  
-  const totalGrossEarnings = paidJobs.reduce((acc, curr) => acc + (curr.price || 0), 0);
-  const totalFees = paidJobs.length * PLATFORM_FEE_FLAT;
-  const totalNetEarnings = totalGrossEarnings - totalFees;
-  
-  const totalCardRevenue = paidJobs.filter(j => j.paymentMethod === 'CARD').reduce((acc, curr) => acc + (curr.price || 0), 0);
-  const totalCardJobsCount = paidJobs.filter(j => j.paymentMethod === 'CARD').length;
-  
-  const totalWithdrawn = (user.withdrawals || [])
-    .filter(w => w.status !== 'REJECTED')
-    .reduce((acc, w) => acc + w.amount, 0);
-  
-  const walletBalance = (totalCardRevenue - (totalCardJobsCount * PLATFORM_FEE_FLAT)) - totalWithdrawn;
-  
-  const unpaidFeeRequests = (user.feeRequests || []).filter(fr => fr.status !== 'PAID');
-  const totalOwed = unpaidFeeRequests.reduce((sum, fr) => sum + fr.amount, 0);
-  
-  const payableFees = unpaidFeeRequests.filter(fr => fr.status === 'PENDING' || fr.status === 'REQUESTED');
+  const totalFeesOwed = useMemo(() => { 
+    return (user.feeRequests || []).filter(f => f.status === 'PENDING').reduce((acc, f) => acc + f.amount, 0); 
+  }, [user.feeRequests]);
+
+  const walletBalance = useMemo(() => {
+    const cardJobs = myJobs.filter(j => j.paymentStatus === 'PAID' && j.paymentMethod === 'CARD');
+    const totalCardRevenue = cardJobs.reduce((acc, j) => {
+      const net = Math.max(0, (j.price || 0) - PLATFORM_FEE_FLAT);
+      return acc + net;
+    }, 0);
+    const withdrawn = (user.withdrawals || []).filter(w => w.status === 'APPROVED' || w.status === 'PENDING').reduce((acc, w) => acc + w.amount, 0);
+    return Math.max(0, totalCardRevenue - withdrawn);
+  }, [myJobs, user.withdrawals]);
 
   const chartData = useMemo(() => {
-    const data = [];
-    const now = new Date();
-    
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthLabel = d.toLocaleString('default', { month: 'short' });
-      const monthYear = `${d.getMonth()}-${d.getFullYear()}`;
-      
-      const monthlyPaidJobs = paidJobs.filter(job => {
-        const jobDate = new Date(job.date);
-        return jobDate.getMonth() === d.getMonth() && jobDate.getFullYear() === d.getFullYear();
-      });
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().split('T')[0];
+    });
 
-      const monthGross = monthlyPaidJobs.reduce((sum, job) => sum + (job.price || 0), 0);
-      const monthNet = monthGross - (monthlyPaidJobs.length * PLATFORM_FEE_FLAT);
-      
-      data.push({
-        name: monthLabel,
-        gross: convertPrice(monthGross),
-        net: convertPrice(monthNet),
-        rawGross: monthGross,
-        id: monthYear
-      });
-    }
-    return data;
-  }, [paidJobs, convertPrice]);
+    return last7Days.map(date => {
+      const dayEarnings = myJobs
+        .filter(j => j.paymentStatus === 'PAID' && j.date.startsWith(date))
+        .reduce((sum, j) => {
+           const amt = j.paymentMethod === 'CARD' ? Math.max(0, (j.price || 0) - PLATFORM_FEE_FLAT) : (j.price || 0);
+           return sum + amt;
+        }, 0);
+      return {
+        name: new Date(date).toLocaleDateString(undefined, { weekday: 'short' }),
+        earnings: dayEarnings
+      };
+    });
+  }, [myJobs]);
 
-  const handleMakeOfferSubmit = (min: number, max: number) => {
-    if (offerBookingId) {
-      onMakeOffer(offerBookingId, min, max);
-      setOfferBookingId(null);
+  const renderContent = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return (
+          <div className="space-y-8 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatCard label={t('gross_revenue')} value={formatPrice(myJobs.reduce((a,b)=>a+(b.price||0),0))} icon={TrendingUp} color="bg-indigo-500" />
+              <StatCard label={t('unpaid_fees')} value={formatPrice(totalFeesOwed)} icon={Receipt} color="bg-orange-500" />
+              <StatCard label={t('my_rating')} value={user.rating?.toFixed(1) || '0.0'} icon={Star} color="bg-yellow-500" />
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col min-h-[400px] overflow-hidden">
+              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50/20">
+                  <h3 className="font-black dark:text-white flex items-center gap-2.5 uppercase tracking-[0.2em] text-[10px] text-indigo-600 leading-none"><List size={18} /> {t('nav_job_board')}</h3>
+                  <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-100 dark:border-indigo-800 px-3 py-1.5 rounded-full uppercase tracking-widest">{poolJobs.length} {t('open_jobs')}</span>
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y dark:divide-gray-700 scrollbar-thin">
+                {poolJobs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400 p-16 opacity-30">
+                      <Briefcase size={60} className="mb-4" />
+                      <p className="text-sm font-black italic uppercase tracking-widest">{t('no_jobs_available')}</p>
+                  </div>
+                ) : poolJobs.map(job => (
+                  <div key={job.id} className="p-6 hover:bg-gray-50/50 dark:hover:bg-gray-900/40 transition-all">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="min-w-0">
+                        <h4 className="font-black text-base dark:text-white uppercase truncate leading-none tracking-tight mb-2">{job.customerName}</h4>
+                        <div className="flex flex-wrap items-center gap-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          <span className="flex items-center gap-1.5"><MapPin size={16} className="text-indigo-500" /> {job.address}</span>
+                          <span className="flex items-center gap-1.5"><CalendarIcon size={16} className="text-indigo-500" /> {new Date(job.scheduledDateTime).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <Badge status={job.status} />
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed font-bold italic mb-5 line-clamp-2">"{job.description}"</p>
+                    <div className="flex gap-3">
+                      <button onClick={() => setOfferBookingId(job.id)} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"> <DollarSign size={16} /> {t('make_offer')} </button>
+                      <button onClick={() => onAcceptJob(job.id)} className="px-6 py-3 bg-white dark:bg-gray-800 border-2 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-black rounded-xl text-[9px] uppercase tracking-widest hover:bg-indigo-50 transition-all active:scale-95">{t('confirm')}</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'schedule':
+        return (
+          <div className="space-y-10 animate-fade-in">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-2">
+              <div>
+                <h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter">{t('nav_schedule')}</h2>
+                <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mt-1">{activeJobs.length} {t('active_jobs')} në total</p>
+              </div>
+              <div className="flex items-center gap-3">
+                 <div className="bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2.5 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex items-center gap-3">
+                    <CalendarIcon size={18} className="text-indigo-600" />
+                    <span className="text-xs font-black dark:text-white uppercase tracking-tight">{selectedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
+                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-[2rem] border dark:border-gray-700 shadow-sm overflow-hidden">
+               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
+                  {dateRibbon.map((date, idx) => {
+                    const isSelected = date.toDateString() === selectedDate.toDateString();
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    const hasJobs = activeJobs.some(j => j.scheduledDateTime.startsWith(date.toISOString().split('T')[0]));
+                    
+                    return (
+                      <button 
+                        key={idx} 
+                        onClick={() => setSelectedDate(date)}
+                        className={`flex flex-col items-center min-w-[70px] py-4 rounded-[1.5rem] transition-all relative group ${
+                          isSelected 
+                            ? 'bg-indigo-600 text-white shadow-xl scale-105' 
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-400'
+                        }`}
+                      >
+                         <span className={`text-[8px] font-black uppercase tracking-widest mb-2 ${isSelected ? 'text-indigo-100' : 'text-gray-400'}`}>
+                           {date.toLocaleDateString(undefined, { weekday: 'short' })}
+                         </span>
+                         <span className="text-lg font-black leading-none">{date.getDate()}</span>
+                         {isToday && !isSelected && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-600 rounded-full" />}
+                         {hasJobs && (
+                           <div className={`mt-2 w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-indigo-500'}`} />
+                         )}
+                      </button>
+                    );
+                  })}
+               </div>
+            </div>
+
+            <div className="space-y-6 relative pl-4 md:pl-8 before:content-[''] before:absolute before:left-[19px] md:before:left-[35px] before:top-4 before:bottom-4 before:w-0.5 before:bg-gray-100 dark:before:bg-gray-800">
+               {jobsForSelectedDate.length === 0 ? (
+                 <div className="ml-10 py-20 bg-white dark:bg-gray-800 rounded-[2rem] border border-dashed dark:border-gray-700 flex flex-col items-center justify-center text-gray-400 opacity-40">
+                    <Clock size={48} className="mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Nuk ka punë të planifikuara për këtë ditë</p>
+                 </div>
+               ) : (
+                 jobsForSelectedDate.map((job, idx) => {
+                   const time = new Date(job.scheduledDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                   const isInProgress = job.status === 'IN_PROGRESS';
+                   
+                   return (
+                     <div key={job.id} className="relative group animate-slide-in-right" style={{ animationDelay: `${idx * 0.1}s` }}>
+                        <div className={`absolute left-[-26px] md:left-[-42px] top-6 w-6 h-6 rounded-full border-4 border-white dark:border-gray-900 shadow-sm z-10 transition-colors ${
+                          isInProgress ? 'bg-emerald-500 animate-pulse' : 'bg-indigo-600'
+                        }`} />
+
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border dark:border-gray-700 shadow-sm hover:shadow-xl transition-all flex flex-col md:flex-row gap-6 items-start md:items-center">
+                           <div className="flex-shrink-0 min-w-[80px]">
+                              <p className="text-xl font-black dark:text-white tracking-tighter mb-1">{time}</p>
+                              <Badge status={job.status} />
+                           </div>
+
+                           <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="text-base font-black dark:text-white uppercase truncate tracking-tight">{job.customerName}</h4>
+                                <span className="text-[8px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/40 px-2 py-0.5 rounded-md">{t(job.category)}</span>
+                              </div>
+                              <div className="flex items-center gap-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                 <span className="flex items-center gap-1.5"><MapPin size={14} className="text-indigo-600" /> {job.address}</span>
+                                 <span className="flex items-center gap-1.5"><DollarSign size={14} className="text-indigo-600" /> {formatPrice(job.price || 0)}</span>
+                              </div>
+                              <p className="mt-4 text-xs text-gray-500 dark:text-gray-400 font-bold italic line-clamp-1 group-hover:line-clamp-none transition-all">"{job.description}"</p>
+                           </div>
+
+                           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto mt-4 md:mt-0 pt-6 md:pt-0 border-t md:border-t-0 dark:border-gray-700">
+                              <button onClick={() => setSelectedChatBooking(job)} className="p-3.5 bg-gray-50 dark:bg-gray-900 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-2xl transition-all relative">
+                                <MessageSquare size={20} />
+                                {job.messages.filter(m => !m.isRead && m.senderId !== user.id).length > 0 && (
+                                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 shadow-md">
+                                    {job.messages.filter(m => !m.isRead && m.senderId !== user.id).length}
+                                  </span>
+                                )}
+                              </button>
+                              
+                              <button className="p-3.5 bg-gray-50 dark:bg-gray-900 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-2xl transition-all">
+                                <Navigation size={20} />
+                              </button>
+
+                              {job.status === 'ACCEPTED' && (
+                                <button onClick={() => onUpdateStatus(job.id, 'IN_PROGRESS')} className="flex-1 md:flex-none px-6 py-3.5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+                                  <Play size={16} fill="currentColor" /> {t('start_job')}
+                                </button>
+                              )}
+                              {job.status === 'IN_PROGRESS' && (
+                                <button onClick={() => setCompletionBooking(job)} className="flex-1 md:flex-none px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+                                  <CheckCircle2 size={16} /> {t('finish_job')}
+                                </button>
+                              )}
+                           </div>
+                        </div>
+                     </div>
+                   );
+                 })
+               )}
+            </div>
+          </div>
+        );
+
+      case 'earnings':
+        return (
+          <div className="space-y-10 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500"><Wallet size={120} /></div>
+                 <div className="flex items-center gap-3 mb-8">
+                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md"><CreditCard size={24}/></div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{t('available_withdraw')}</span>
+                 </div>
+                 <h3 className="text-4xl font-black leading-none mb-3">{formatPrice(walletBalance)}</h3>
+                 <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">{t('earnings_calculation_info')}</p>
+                 <button onClick={() => setShowWithdrawalModal(true)} disabled={walletBalance <= 0} className="mt-8 w-full py-4 bg-white text-indigo-600 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50">{t('withdraw_funds')}</button>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500"><Receipt size={120} /></div>
+                 <div className="flex items-center gap-3 mb-8">
+                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md"><AlertCircle size={24}/></div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{t('total_owed')}</span>
+                 </div>
+                 <h3 className="text-4xl font-black leading-none mb-3">{formatPrice(totalFeesOwed)}</h3>
+                 <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Pending Platform Commissions</p>
+                 <div className="mt-8 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-black/10 p-3 rounded-xl border border-white/10">
+                   <Info size={16} /> <span>Pay fees to keep account active</span>
+                 </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-[2rem] border-2 border-indigo-50 dark:border-gray-700 shadow-sm relative overflow-hidden group flex flex-col justify-between">
+                 <div className="absolute top-0 right-0 p-6 text-indigo-600 opacity-5 group-hover:scale-110 transition-transform duration-500"><Activity size={120} /></div>
+                 <div>
+                   <div className="flex items-center gap-3 mb-8">
+                      <div className="p-3 bg-indigo-50 dark:bg-indigo-900/40 rounded-2xl text-indigo-600"><TrendingUp size={24}/></div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Projected Net</span>
+                   </div>
+                   <h3 className="text-4xl font-black leading-none mb-3 dark:text-white">
+                      {formatPrice(myJobs.filter(j => j.status === 'ACCEPTED').reduce((acc, b) => acc + Math.max(0, (b.price || 0) - PLATFORM_FEE_FLAT), 0))}
+                   </h3>
+                   <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">From {activeJobs.length} Active Jobs (Net)</p>
+                 </div>
+                 <div className="mt-8 flex gap-2">
+                    <div className="flex-1 bg-gray-50 dark:bg-gray-900 p-3 rounded-xl">
+                       <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Total Jobs</p>
+                       <p className="text-lg font-black dark:text-white leading-none">{user.jobsCompleted}</p>
+                    </div>
+                    <div className="flex-1 bg-gray-50 dark:bg-gray-900 p-3 rounded-xl">
+                       <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Avg Rating</p>
+                       <p className="text-lg font-black dark:text-white leading-none">{user.rating?.toFixed(1)}</p>
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-50 dark:bg-orange-900/40 text-orange-600 rounded-xl"><DollarSign size={18}/></div>
+                  <h3 className="text-[11px] font-black uppercase tracking-widest dark:text-white">Pending Platform Fees</h3>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y dark:divide-gray-700 scrollbar-thin max-h-[300px]">
+                {(user.feeRequests || []).filter(f => f.status !== 'PAID').length === 0 ? (
+                  <div className="p-20 text-center text-gray-400">
+                    <CheckCircle2 size={48} className="mx-auto mb-4 opacity-10" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">No outstanding fees</p>
+                  </div>
+                ) : (
+                  (user.feeRequests || [])
+                    .filter(f => f.status !== 'PAID')
+                    .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map(fee => (
+                      <div key={fee.id} className="p-6 flex flex-col sm:flex-row justify-between items-center gap-6 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-all group">
+                        <div className="flex items-center gap-4 w-full">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${fee.status === 'VERIFYING' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'} transition-transform group-hover:scale-110`}>
+                              <Receipt size={24}/>
+                          </div>
+                          <div>
+                              <p className="text-xs font-black dark:text-white uppercase leading-none mb-2">{t(fee.bookingCategory)}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{new Date(fee.date).toLocaleDateString()}</span>
+                                <Badge status={fee.status} />
+                              </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
+                          <span className="text-xl font-black text-indigo-600 whitespace-nowrap">{formatPrice(fee.amount)}</span>
+                          {fee.status === 'PENDING' && (
+                            <button onClick={() => onSettleFee?.(fee.id)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">
+                              {t('pay_platform')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'profile':
+        return <ProfileView user={user} onEdit={() => setShowEditModal(true)} />;
+
+      default:
+        return <div className="p-20 text-center text-gray-400 uppercase font-black text-xs tracking-widest">{t('view_not_found')}</div>;
     }
   };
 
-  const bookingToBid = bookings.find(b => b.id === offerBookingId);
-
-  if (currentView === 'earnings') {
-    return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <TrendingUp className="text-indigo-500" />
-                    {t('financial_overview')}
-                </h2>
-                <div className="flex items-center gap-4 text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
-                    <Calendar size={16} />
-                    <span>{chartData[0].name} - {chartData[5].name} {new Date().getFullYear()}</span>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                <StatCard label={t('gross_revenue')} value={formatPrice(totalGrossEarnings)} icon={DollarSign} color="bg-indigo-500" />
-                <StatCard label={t('platform_fees')} value={formatPrice(totalFees)} icon={Receipt} color="bg-orange-500" />
-                <StatCard label={t('net_earnings')} value={formatPrice(Math.max(0, totalNetEarnings))} icon={TrendingUp} color="bg-green-500" />
-                <StatCard label={t('total_owed')} value={formatPrice(totalOwed)} icon={HandCoins} color="bg-red-500" />
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('revenue')} Trends</h3>
-                            <p className="text-sm text-gray-500">Compare gross and net earnings over the last 6 months</p>
-                        </div>
-                    </div>
-                    <div className="h-[350px] w-full mt-auto">
-                         <ResponsiveContainer width="100%" height="100%">
-                             <BarChart data={chartData} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.05} />
-                                <XAxis 
-                                    dataKey="name" 
-                                    stroke="#9CA3AF" 
-                                    fontSize={12} 
-                                    tickLine={false} 
-                                    axisLine={false} 
-                                    dy={10}
-                                />
-                                <YAxis 
-                                    stroke="#9CA3AF" 
-                                    fontSize={12} 
-                                    tickLine={false} 
-                                    axisLine={false}
-                                    tickFormatter={(val) => currency === 'ALL' ? `${val} L` : `€${val}`}
-                                />
-                                <Tooltip 
-                                    cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                                    content={({ active, payload, label }) => {
-                                        if (active && payload && payload.length) {
-                                            const grossVal = payload[0]?.value ?? 0;
-                                            const netVal = payload[1]?.value ?? 0;
-                                            const prefix = currency === 'EUR' ? '€' : '';
-                                            const suffix = currency === 'ALL' ? ' L' : '';
-                                            return (
-                                                <div className="bg-gray-900 text-white p-4 rounded-xl shadow-2xl border border-gray-800 text-xs animate-scale-in">
-                                                    <p className="font-bold mb-2 border-b border-gray-700 pb-1">{label} {new Date().getFullYear()}</p>
-                                                    <div className="space-y-1.5">
-                                                        <div className="flex items-center justify-between gap-8">
-                                                            <span className="flex items-center gap-2 text-gray-400"><span className="w-2 h-2 rounded-full bg-indigo-500"></span>{t('gross_revenue')}</span>
-                                                            <span className="font-bold">{prefix}{grossVal.toLocaleString()}{suffix}</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between gap-8">
-                                                            <span className="flex items-center gap-2 text-gray-400"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>{t('net_earnings')}</span>
-                                                            <span className="font-bold text-emerald-400">{prefix}{netVal.toLocaleString()}{suffix}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
-                                <Bar dataKey="gross" name={t('gross_revenue')} fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
-                                <Bar dataKey="net" name={t('net_earnings')} fill="#10B981" radius={[4, 4, 0, 0]} barSize={32} />
-                             </BarChart>
-                         </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-2xl p-6 text-white shadow-xl flex flex-col justify-between overflow-hidden relative">
-                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
-                        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-                        <div className="relative z-10">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 className="text-xl font-bold mb-1">{t('my_wallet')}</h3>
-                                    <p className="text-indigo-100/70 text-[10px] font-bold uppercase tracking-widest">
-                                        {t('available_withdraw')}
-                                    </p>
-                                </div>
-                                <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
-                                    <Wallet size={20} />
-                                </div>
-                            </div>
-                            <div className="font-bold text-5xl mb-6 tracking-tight flex items-baseline gap-1">
-                                {formatPrice(Math.max(0, walletBalance))}
-                            </div>
-                            <div className="flex items-start gap-2 p-3 bg-black/20 rounded-xl mb-6 border border-white/10">
-                                <Info size={14} className="text-indigo-200 shrink-0 mt-0.5" />
-                                <p className="text-[10px] text-indigo-100 opacity-90 leading-tight">
-                                    {t('wallet_balance_info')}
-                                </p>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={() => setShowWithdrawalModal(true)} 
-                            disabled={walletBalance <= 0} 
-                            className="relative z-10 w-full py-4 bg-white text-indigo-700 rounded-xl font-bold hover:bg-gray-100 hover:shadow-lg transition-all transform active:scale-95 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
-                        >
-                            <Wallet size={18} className="group-hover:rotate-12 transition-transform" /> {t('withdraw_funds')}
-                        </button>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm flex-1">
-                        <div className="flex items-center justify-between mb-4">
-                            <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><HandCoins size={18} className="text-orange-500" /> {t('unpaid_fees')}</h4>
-                            {payableFees.length > 1 && onPayAllFees && (
-                                <button 
-                                    onClick={onPayAllFees}
-                                    className="text-[10px] bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 font-bold px-2 py-1 rounded hover:bg-indigo-100 transition-colors uppercase"
-                                >
-                                    {t('pay_all_fees')}
-                                </button>
-                            )}
-                        </div>
-                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                            {unpaidFeeRequests.length === 0 ? (
-                                <p className="text-xs text-gray-500 italic text-center py-4">No pending fees from cash jobs.</p>
-                            ) : (
-                                unpaidFeeRequests.map((fr, idx) => (
-                                    <div key={idx} className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700 relative">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{t(fr.bookingCategory)}</span>
-                                            <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{formatPrice(fr.amount)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] text-gray-400">{new Date(fr.date).toLocaleDateString()}</span>
-                                            <Badge status={fr.status} />
-                                        </div>
-                                        {onPayFee && (
-                                            <button 
-                                                onClick={() => onPayFee(fr.id)}
-                                                disabled={fr.status === 'VERIFYING'}
-                                                className={`mt-1 w-full py-1.5 rounded-lg text-[10px] font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                                                    fr.status === 'VERIFYING' 
-                                                    ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
-                                                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                                }`}
-                                            >
-                                                {fr.status === 'VERIFYING' ? (
-                                                    <><Loader2 size={12} className="animate-spin" /> {t('payment_awaiting_approval')}</>
-                                                ) : (
-                                                    <><CreditCard size={12} /> {t('pay_platform')}</>
-                                                )}
-                                            </button>
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Receipt size={20} className="text-indigo-500" />
-                        {t('job_transactions')}
-                    </h3>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold">
-                            <tr>
-                                <th className="px-6 py-4">{t('date')}</th>
-                                <th className="px-6 py-4">{t('service_label')}</th>
-                                <th className="px-6 py-4">{t('method')}</th>
-                                <th className="px-6 py-4">{t('gross_revenue')}</th>
-                                <th className="px-6 py-4">{t('net_earnings')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {paidJobs.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">
-                                        {t('no_bookings')}
-                                    </td>
-                                </tr>
-                            ) : (
-                                [...paidJobs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(job => (
-                                    <tr key={job.id} className="dark:text-gray-300 group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                      <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{new Date(job.date).toLocaleDateString()}</td>
-                                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{t(job.category)}</td>
-                                      <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${job.paymentMethod === 'CASH' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                                          {job.paymentMethod === 'CASH' ? <Banknote size={10} /> : <CreditCard size={10} />}
-                                          {job.paymentMethod}
-                                        </span>
-                                      </td>
-                                      <td className="px-6 py-4">{formatPrice(job.price || 0)}</td>
-                                      <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400">{formatPrice((job.price || 0) - PLATFORM_FEE_FLAT)}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <WithdrawalModal isOpen={showWithdrawalModal} onClose={() => setShowWithdrawalModal(false)} availableBalance={walletBalance} onWithdraw={onWithdrawFunds} />
-        </div>
-    );
-  }
-
-  if (currentView === 'schedule') {
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('nav_schedule')}</h2>
-              <button onClick={() => setShowAvailabilityModal(true)} className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-all active:scale-95"><Settings size={18} /> {t('manage_availability')}</button>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {activeJobs.map(job => (
-                        <div key={job.id} className="p-6">
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">{job.customerName}</h4>
-                                      <Badge status={job.status} />
-                                    </div>
-                                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-3">
-                                      <Clock size={16} />
-                                      {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                    </div>
-                                    <p className="text-gray-600 dark:text-gray-400 mb-2">{job.description}</p>
-                                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                                      <MapPin size={14} className="text-indigo-500" />
-                                      {job.address}
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <button onClick={() => setSelectedChatBooking(job)} className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"><MessageSquare size={18} /></button>
-                                    {job.status === 'ACCEPTED' && (
-                                        <>
-                                            <button onClick={() => setBookingToCancel(job.id)} className="px-4 py-2 border border-red-300 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 font-medium">{t('cancel_job')}</button>
-                                            <button onClick={() => onUpdateStatus(job.id, 'IN_PROGRESS')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-md shadow-indigo-500/20">{t('start_job')}</button>
-                                        </>
-                                    )}
-                                    {job.status === 'IN_PROGRESS' && (
-                                        <>
-                                            <button onClick={() => setBookingToCancel(job.id)} className="px-4 py-2 border border-red-300 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 font-medium">{t('cancel_job')}</button>
-                                            <button onClick={() => setBookingToComplete(job)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow-md shadow-green-500/20">{t('complete_job')}</button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    {activeJobs.length === 0 && (
-                      <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-                        <Calendar size={48} className="mx-auto mb-4 opacity-10" />
-                        <p>{t('no_scheduled_jobs')}</p>
-                      </div>
-                    )}
-                </div>
-            </div>
-            <ChatModal isOpen={!!selectedChatBooking} onClose={() => setSelectedChatBooking(null)} booking={selectedChatBooking} currentUser={user} onSendMessage={onSendMessage} />
-            <AvailabilityModal isOpen={showAvailabilityModal} onClose={() => setShowAvailabilityModal(false)} currentAvailability={user.availability} onSave={onUpdateAvailability} />
-            <ConfirmationModal 
-                isOpen={!!bookingToCancel} 
-                onClose={() => setBookingToCancel(null)} 
-                onConfirm={() => { if (bookingToCancel) onCancelJob(bookingToCancel); }} 
-                title={t('cancel_job')} 
-                message={t('cancel_job_confirm')} 
-                confirmLabel={t('yes_cancel')} 
-                cancelLabel={t('no_keep')} 
-                isDestructive 
-            />
-            <CompletionModal 
-                isOpen={!!bookingToComplete} 
-                onClose={() => setBookingToComplete(null)} 
-                onConfirm={(price) => { if (bookingToComplete) onUpdateStatus(bookingToComplete.id, 'COMPLETED', price); }} 
-                initialPrice={bookingToComplete?.price}
-            />
-        </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard label={t('active_jobs')} value={activeJobs.length} icon={Briefcase} color="bg-blue-500" />
-        <StatCard label={t('completed_jobs')} value={paidJobs.length} icon={CheckCircle} color="bg-green-500" />
-        <StatCard label={t('my_rating')} value={user.rating ? user.rating.toFixed(1) : "N/A"} icon={Star} color="bg-yellow-400" />
-      </div>
+    <div className="space-y-10 pb-16">
+      {renderContent()}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-[600px]">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 shrink-0"><h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('nav_job_board')}</h3></div>
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-              {availableDirectRequests.length > 0 && (
-                  <>
-                      <div className="px-6 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider">{t('direct_requests')}</div>
-                      {availableDirectRequests.map(job => {
-                          const myOffer = job.offers?.find(o => o.providerId === user.id);
-                          return (
-                          <div key={job.id} className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors border-l-4 border-indigo-500">
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-white">{job.customerName}</h4>
-                                <Badge status={job.status} />
-                            </div>
-                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs mb-3">
-                              <Clock size={14} />
-                              {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                            </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{job.description}</p>
-                            <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
-                               <MapPin size={12} />
-                               {job.address}
-                            </div>
-                            <div className="flex gap-3">
-                                <button 
-                                    onClick={() => onDeclineJob(job.id)} 
-                                    className="flex-1 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-white dark:hover:bg-gray-700 flex items-center justify-center gap-2"
-                                >
-                                    <ArrowUpRight size={16} /> {t('decline_job')}
-                                </button>
-                                <button 
-                                    onClick={() => setJobToRefuse(job.id)} 
-                                    className="flex-1 py-2 border border-red-200 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center gap-2"
-                                >
-                                    <X size={16} /> {t('refuse_job')}
-                                </button>
-                                {job.status === 'PENDING' && (
-                                    <button onClick={() => setOfferBookingId(job.id)} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">{t('make_offer')}</button>
-                                )}
-                                {job.status === 'OFFER_MADE' && myOffer && (
-                                    <div className="flex-1 text-center py-2 text-indigo-600 font-bold text-sm bg-white rounded-lg border border-indigo-100">
-                                        {formatPrice(myOffer.minPrice)} - {formatPrice(myOffer.maxPrice)}
-                                    </div>
-                                )}
-                            </div>
-                          </div>
-                      )})}
-                  </>
-              )}
-              
-              <div className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs font-bold uppercase tracking-wider">{t('open_jobs')}</div>
-              {availablePoolJobs.length === 0 && myPendingOffers.length === 0 ? (
-                 <div className="p-8 text-center text-gray-500 dark:text-gray-400"><Briefcase className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" /><p>{t('no_jobs_available')}</p></div>
-              ) : (
-                 <>
-                    {/* Jobs I already bid on */}
-                    {myPendingOffers.map(job => {
-                        const myOffer = job.offers?.find(o => o.providerId === user.id);
-                        return (
-                        <div key={job.id} className="p-6 bg-blue-50/20 dark:bg-blue-900/5 hover:bg-blue-50/40 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-white">{job.customerName}</h4>
-                                <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold uppercase">{t('offer_sent')}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] mb-2 uppercase">
-                              <Clock size={12} />
-                              {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                            </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{job.description}</p>
-                            <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
-                               <MapPin size={12} /> {job.address}
-                            </div>
-                            <div className="flex items-center justify-between text-indigo-600">
-                                <span className="text-xs font-medium">{t('waiting_approval')}...</span>
-                                {myOffer && <span className="font-bold">{formatPrice(myOffer.minPrice)} - {formatPrice(myOffer.maxPrice)}</span>}
-                            </div>
-                        </div>
-                    )})}
-
-                    {/* New open jobs */}
-                    {availablePoolJobs.map(job => (
-                        <div key={job.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-transparent hover:border-indigo-500">
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-white">{job.customerName}</h4>
-                                {job.aiPriceRange && (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-[10px] font-bold border border-purple-100 dark:border-purple-800 animate-pulse">
-                                        <Sparkles size={12} />
-                                        {job.aiPriceRange}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs mb-3">
-                              <Clock size={14} />
-                              {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                            </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{job.description}</p>
-                            <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
-                               <MapPin size={12} />
-                               {job.address}
-                            </div>
-                            <button onClick={() => setOfferBookingId(job.id)} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm">{t('make_offer')}</button>
-                        </div>
-                    ))}
-                 </>
-              )}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-[600px]">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 shrink-0"><h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('active_jobs')}</h3></div>
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-              {activeJobs.map(job => (
-                <div key={job.id} className="p-6 group">
-                  <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">{job.customerName}</h4>
-                      <Badge status={job.status} />
-                  </div>
-                  <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs mb-3">
-                      <Clock size={14} />
-                      {new Date(job.scheduledDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{job.description}</p>
-                  <div className="flex items-center justify-between">
-                      <div className="flex gap-2">
-                        <button onClick={() => setSelectedChatBooking(job)} className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"><MessageSquare size={18} /></button>
-                        <button onClick={() => setBookingToCancel(job.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"><Trash2 size={18} /></button>
-                      </div>
-                      <div className="text-right">
-                          <div className="font-bold text-indigo-600 dark:text-indigo-400">{formatPrice(job.price)}</div>
-                          <div className="text-[10px] text-gray-400 font-bold uppercase">{t('ACCEPTED')}</div>
-                      </div>
-                  </div>
-                </div>
-              ))}
-              {activeJobs.length === 0 && (
-                  <div className="p-12 text-center text-gray-400 flex flex-col items-center">
-                      <Briefcase size={40} className="opacity-10 mb-2" />
-                      <p>{t('no_bookings')}</p>
-                  </div>
-              )}
-          </div>
-        </div>
-      </div>
-      <ConfirmationModal 
-            isOpen={!!bookingToCancel} 
-            onClose={() => setBookingToCancel(null)} 
-            onConfirm={() => { if (bookingToCancel) onCancelJob(bookingToCancel); }} 
-            title={t('cancel_job')} 
-            message={t('cancel_job_confirm')} 
-            confirmLabel={t('yes_cancel')} 
-            cancelLabel={t('no_keep')} 
-            isDestructive 
-      />
-      <ConfirmationModal 
-            isOpen={!!jobToRefuse} 
-            onClose={() => setJobToRefuse(null)} 
-            onConfirm={() => { if (jobToRefuse) onCancelJob(jobToRefuse); }} 
-            title={t('refuse_job')} 
-            message={t('refuse_job_confirm')} 
-            confirmLabel={t('refuse_job')} 
-            cancelLabel={t('no_keep')} 
-            isDestructive 
-      />
-      <OfferModal 
-        isOpen={!!offerBookingId} 
-        onClose={() => setOfferBookingId(null)} 
-        onSubmit={handleMakeOfferSubmit}
-        suggestedRange={bookingToBid?.aiPriceRange}
-      />
+      <ChatModal isOpen={!!selectedChatBooking} onClose={() => setSelectedChatBooking(null)} booking={selectedChatBooking} currentUser={user} onSendMessage={onSendMessage} onMarkRead={onMarkRead} />
+      <WithdrawalModal isOpen={showWithdrawalModal} onClose={() => setShowWithdrawalModal(false)} availableBalance={walletBalance} onWithdraw={onWithdrawFunds} />
+      <OfferModal isOpen={!!offerBookingId} onClose={() => setOfferBookingId(null)} onSubmit={(min, max) => offerBookingId && onMakeOffer(offerBookingId, min, max)} />
+      <JobCompletionModal isOpen={!!completionBooking} onClose={() => setCompletionBooking(null)} booking={completionBooking} onComplete={(id, price) => onUpdateStatus(id, 'COMPLETED', price)} />
+      <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} user={user} onSave={onUpdateUser} />
     </div>
   );
 };

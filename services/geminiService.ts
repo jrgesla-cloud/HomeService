@@ -16,18 +16,11 @@ const parseJsonClean = (text: string) => {
 };
 
 export const analyzeServiceRequest = async (userDescription: string, language: string = 'sq'): Promise<AIAnalysisResult | null> => {
-    // API key must be obtained from process.env.API_KEY
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        console.warn("No API Key provided for Gemini");
-        return null;
-    }
-
     try {
-        // Correct initialization with named parameter
-        const ai = new GoogleGenAI({ apiKey });
+        // ALWAYS use named parameter for apiKey from process.env.API_KEY
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
-        // Use Translation Keys for categories so the UI can translate them dynamically
+        // Use Translation Keys for categories
         const categories = "cat_plumbing, cat_electrical, cat_cleaning, cat_hvac, cat_landscaping, cat_moving, cat_general";
         
         const prompt = `
@@ -41,7 +34,7 @@ export const analyzeServiceRequest = async (userDescription: string, language: s
             Return the result in JSON format.
         `;
 
-        // Updated model to gemini-3-flash-preview as per guidelines for Basic Text Tasks
+        // Using gemini-3-flash-preview for Basic Text Tasks
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
             contents: prompt,

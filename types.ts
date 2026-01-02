@@ -14,15 +14,15 @@ export enum ServiceCategory {
 export interface CategoryItem {
   id: string;
   name: string;
-  icon: string; // Store emoji for simplicity in this demo
+  icon: string; 
   basePrice: number;
   description?: string;
 }
 
 export interface Availability {
-  workingDays: string[]; // e.g. ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-  startTime: string; // "09:00"
-  endTime: string; // "17:00"
+  workingDays: string[]; 
+  startTime: string; 
+  endTime: string; 
 }
 
 export interface Withdrawal {
@@ -32,7 +32,7 @@ export interface Withdrawal {
   amount: number;
   date: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  method: string; // e.g. "Bank Transfer", "PayPal"
+  method: string; 
 }
 
 export interface FeeRequest {
@@ -47,13 +47,13 @@ export interface FeeRequest {
 
 export interface AppNotification {
   id: string;
-  titleKey: string; // Translation key for title
-  messageKey: string; // Translation key for message
-  params?: Record<string, string | number>; // Dynamic params for translation
+  titleKey: string; 
+  messageKey: string; 
+  params?: Record<string, string | number>; 
   date: string;
   isRead: boolean;
   type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
-  relatedId?: string; // ID of booking/transaction
+  relatedId?: string; 
 }
 
 export interface User {
@@ -65,16 +65,15 @@ export interface User {
   phone?: string;
   isVerified?: boolean;
   notifications?: AppNotification[];
-  // Provider specific
   rating?: number;
   jobsCompleted?: number;
-  category?: string; // Changed from ServiceCategory to string
+  category?: string; 
   hourlyRate?: number;
   bio?: string;
   address?: string;
   availability?: Availability;
   withdrawals?: Withdrawal[];
-  feeRequests?: FeeRequest[]; // New field for tracking cash job fees
+  feeRequests?: FeeRequest[]; 
 }
 
 export interface Message {
@@ -83,9 +82,9 @@ export interface Message {
   senderName: string;
   text: string;
   timestamp: string;
+  isRead: boolean; 
 }
 
-// Fixed: Added minPrice and maxPrice to match usage in biddings across the app
 export interface ServiceOffer {
   id: string;
   providerId: string;
@@ -105,23 +104,23 @@ export interface ServiceRequest {
   id: string;
   customerId: string;
   customerName: string;
-  providerId?: string; // Assigned provider after acceptance
+  providerId?: string; 
   providerName?: string;
   category: string; 
   description: string;
   status: 'PENDING' | 'OFFER_MADE' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  date: string; // Creation date
-  scheduledDateTime: string; // User preferred time for service
-  price: number; // Final price
+  date: string; 
+  scheduledDateTime: string; 
+  price: number; 
   address: string;
   coordinates?: { lat: number; lng: number };
   messages: Message[];
-  offers?: ServiceOffer[]; // Support for multiple biddings
+  offers?: ServiceOffer[]; 
   rating?: number;
   review?: string;
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
-  aiPriceRange?: string; // Added to store suggested range from Gemini
+  aiPriceRange?: string; 
 }
 
 export interface AIAnalysisResult {

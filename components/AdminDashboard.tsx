@@ -1,942 +1,578 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { User, ServiceRequest, ServiceCategory, PlatformContent, Withdrawal, CategoryItem, FeeRequest } from '../types';
-import { Badge, StatCard, StarRating, useLanguage, useCurrency, ChatModal } from './Shared';
-import { Users, Briefcase, Activity, TrendingUp, Plus, X, Search, MapPin, DollarSign, Mail, Save, Trash2, Edit2, Filter, Calendar, User as UserIcon, Clock, CheckCircle, XCircle, CreditCard, Receipt, FileText, ShieldCheck, Lock, Phone, Globe, HelpCircle, BellRing, HandCoins, MessageSquare, Send, AlertTriangle, ExternalLink } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import React, { useState, useMemo } from 'react';
+import { User, ServiceRequest, PlatformContent, CategoryItem, UserRole, FeeRequest, Message } from '../types';
+import { Badge, StatCard, useLanguage, useCurrency, ChatModal, ProfileView, EditProfileModal } from './Shared';
+import { 
+  Users, 
+  Briefcase, 
+  Activity, 
+  TrendingUp, 
+  Plus, 
+  X, 
+  Search, 
+  Star,
+  MapPin, 
+  DollarSign, 
+  Mail, 
+  Save, 
+  Trash2, 
+  Edit2, 
+  Filter, 
+  Calendar, 
+  User as UserIcon, 
+  Clock, 
+  CheckCircle, 
+  Receipt, 
+  FileText, 
+  ShieldCheck, 
+  Lock, 
+  Globe, 
+  MessageSquare, 
+  AlertTriangle, 
+  CheckSquare, 
+  Phone, 
+  Instagram, 
+  Facebook, 
+  Twitter,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Banknote,
+  CreditCard,
+  History,
+  PieChart,
+  Wallet,
+  CheckCircle2,
+  Check,
+  FilterIcon,
+  BellRing,
+  AlertCircle
+} from 'lucide-react';
 
 interface Props {
   currentUser: User;
   users: User[];
   bookings: ServiceRequest[];
   currentView: string;
-  onAddProvider: (provider: Omit<User, 'id' | 'rating' | 'jobsCompleted'>) => void;
-  platformContent?: PlatformContent;
-  onUpdateContent?: (content: PlatformContent) => void;
-  onProcessWithdrawal?: (withdrawalId: string, action: 'APPROVE' | 'REJECT', amount?: number) => void;
+  onAddUser: (user: Omit<User, 'id' | 'rating' | 'jobsCompleted'>) => void;
+  onRemoveUser: (userId: string) => void;
+  platformContent: PlatformContent;
+  onUpdateContent: (content: PlatformContent) => void;
+  onProcessWithdrawal: (withdrawalId: string, action: 'APPROVE' | 'REJECT', amount?: number) => void;
   serviceCategories: CategoryItem[];
   onAddCategory: (category: Omit<CategoryItem, 'id'>) => void;
   onUpdateCategory?: (category: CategoryItem) => void;
   onDeleteCategory: (categoryId: string) => void;
-  onRequestFee?: (providerId: string, feeId: string) => void;
-  onMarkFeePaid?: (providerId: string, feeId: string, status: 'PAID' | 'REJECTED') => void;
   onAdminSendMessageToUser: (userId: string, message: string) => void;
   onSendMessage: (bookingId: string, text: string) => void;
+  onMarkRead: (bookingId: string) => void;
+  onManageFee: (providerId: string, feeId: string, action: 'APPROVE' | 'REJECT' | 'UPDATE' | 'REMIND', newAmount?: number) => void;
 }
 
-const PLATFORM_FEE_FLAT = 5;
+const PLATFORM_FEE_FLAT = 500; 
 
-const AddProviderModal: React.FC<{ isOpen: boolean, onClose: () => void, onSubmit: (d: any) => void, categories: CategoryItem[] }> = ({ isOpen, onClose, onSubmit, categories }) => {
-    const { t } = useLanguage();
-    const [formData, setFormData] = useState({ name: '', email: '', category: categories[0]?.name || 'cat_general', hourlyRate: 50, address: '', bio: '', phone: '' });
-
-    if (!isOpen) return null;
-    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSubmit({ ...formData, role: 'PROVIDER' }); onClose(); };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 animate-scale-in border dark:border-gray-700">
-                <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('add_provider')}</h3><button onClick={onClose} className="text-gray-500 dark:text-gray-400"><X size={20} /></button></div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <input required placeholder={t('full_name')} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                    <div className="grid grid-cols-2 gap-4">
-                        <input required type="email" placeholder={t('email')} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                        <input required type="tel" placeholder={t('phone')} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                    </div>
-                    <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">{categories.map(c => <option key={c.id} value={c.name}>{t(c.name)}</option>)}</select>
-                    <input required type="number" placeholder={`${t('rate_service')} (€)`} value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: Number(e.target.value)})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700">{t('submit')}</button>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-const EditCategoryModal: React.FC<{ isOpen: boolean, onClose: () => void, category: CategoryItem | null, onSave: (c: CategoryItem) => void }> = ({ isOpen, onClose, category, onSave }) => {
-    const { t } = useLanguage();
-    const [formData, setFormData] = useState<CategoryItem | null>(null);
-
-    useEffect(() => { setFormData(category); }, [category]);
-
-    if (!isOpen || !formData) return null;
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(formData);
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-scale-in border dark:border-gray-700">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('edit_category')}</h3>
-                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400"><X size={20} /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('name')}</label>
-                        <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('icon')}</label>
-                        <input required value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('base_price')} (€)</label>
-                        <input required type="number" min="0" value={formData.basePrice} onChange={e => setFormData({...formData, basePrice: Number(e.target.value)})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                    </div>
-                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700">{t('save')}</button>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-const AdminMessageModal: React.FC<{ isOpen: boolean, onClose: () => void, user: User | null, onSend: (userId: string, msg: string) => void }> = ({ isOpen, onClose, user, onSend }) => {
-    const { t } = useLanguage();
-    const [message, setMessage] = useState('');
-
-    if (!isOpen || !user) return null;
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (message.trim()) {
-            onSend(user.id, message);
-            setMessage('');
-            onClose();
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl p-6 animate-scale-in border dark:border-gray-700">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5 text-indigo-500" />
-                        {t('compose_message')}
-                    </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:text-gray-700"><X size={20} /></button>
-                </div>
-                <div className="mb-4 flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <img src={user.avatarUrl} className="w-10 h-10 rounded-full" alt="" />
-                    <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{user.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                    </div>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <textarea 
-                        required
-                        rows={4}
-                        placeholder="..."
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
-                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 flex items-center justify-center gap-2 transition-all">
-                        <Send size={18} /> {t('send_message')}
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-export const AdminDashboard: React.FC<Props> = ({ currentUser, users, bookings, currentView, onAddProvider, platformContent, onUpdateContent, onProcessWithdrawal, serviceCategories, onAddCategory, onUpdateCategory, onDeleteCategory, onRequestFee, onMarkFeePaid, onAdminSendMessageToUser, onSendMessage }) => {
+// --- Sub-component for adding category ---
+const AddCategoryModal: React.FC<{ isOpen: boolean; onClose: () => void; onAdd: (c: any) => void }> = ({ isOpen, onClose, onAdd }) => {
   const { t } = useLanguage();
-  const { formatPrice, currency, convertPrice } = useCurrency();
-  
-  // --- All Hooks must be at the top level ---
-  const [showAddProvider, setShowAddProvider] = useState(false);
-  const [userSearch, setUserSearch] = useState('');
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
-  const [editedContent, setEditedContent] = useState<PlatformContent | null>(null);
-  const [newCategory, setNewCategory] = useState({ name: '', icon: '🔧', basePrice: 50 });
-  const [bookingFilter, setBookingFilter] = useState<ServiceRequest['status'] | 'ALL'>('ALL');
-  
-  // Store adjustedAmounts in the DISPLAY currency for easier editing, convert on submit
-  const [adjustedAmounts, setAdjustedAmounts] = useState<Record<string, number>>({});
-  
-  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
-  const [userToMessage, setUserToMessage] = useState<User | null>(null);
-  const [activeBookingChat, setActiveBookingChat] = useState<ServiceRequest | null>(null);
+  const [formData, setFormData] = useState({ name: '', icon: '🔧', basePrice: 500 });
 
-  useEffect(() => { 
-    if (platformContent && !editedContent) {
-      setEditedContent(platformContent); 
-    }
-  }, [platformContent, editedContent]);
+  if (!isOpen) return null;
 
-  const chartData = useMemo(() => {
-    const data = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthLabel = d.toLocaleString('default', { month: 'short' });
-        const monthBookings = bookings.filter(b => {
-            const bDate = new Date(b.date);
-            return bDate.getMonth() === d.getMonth() && bDate.getFullYear() === d.getFullYear();
-        });
-        const revenue = monthBookings.filter(b => b.paymentStatus === 'PAID').length * PLATFORM_FEE_FLAT;
-        data.push({ name: monthLabel, revenue: convertPrice(revenue), count: monthBookings.length });
-    }
-    return data;
-  }, [bookings, convertPrice]);
-
-  // --- Handlers ---
-  const handleSaveContent = () => { if (editedContent && onUpdateContent) onUpdateContent(editedContent); };
-  const handleAdjustAmount = (id: string, val: string) => {
-      const num = parseFloat(val) || 0;
-      setAdjustedAmounts(prev => ({ ...prev, [id]: num }));
-  };
-
-  const handleProcessWithdrawalWrapper = (withdrawalId: string, action: 'APPROVE' | 'REJECT', amountInDisplay?: number) => {
-    if (!onProcessWithdrawal) return;
-    
-    let amountInEur: number | undefined = undefined;
-    if (amountInDisplay !== undefined) {
-        // Convert back to EUR for backend logic
-        amountInEur = currency === 'ALL' ? amountInDisplay / 100 : amountInDisplay;
-    }
-    
-    onProcessWithdrawal(withdrawalId, action, amountInEur);
-    // Clear adjusted amount for this item
-    const newAdjusted = { ...adjustedAmounts };
-    delete newAdjusted[withdrawalId];
-    setAdjustedAmounts(newAdjusted);
-  };
-
-  // --- Derived Data ---
-  const totalUsers = users.length;
-  const totalBookings = bookings.length;
-  const activeJobsCount = bookings.filter(b => b.status === 'ACCEPTED' || b.status === 'IN_PROGRESS').length;
-  
-  const allFeeRequests = users
-    .flatMap(u => (u.feeRequests || []).map(fr => ({ ...fr, providerName: u.name })))
-    .filter(fr => fr.status !== 'PAID')
-    .sort((a, b) => {
-        if (a.status === 'VERIFYING' && b.status !== 'VERIFYING') return -1;
-        if (a.status !== 'VERIFYING' && b.status === 'VERIFYING') return 1;
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
-    });
-  
-  const totalUnpaidCashFees = allFeeRequests
-    .filter(fr => fr.status !== 'REJECTED')
-    .reduce((acc, fr) => acc + (fr.amount || 0), 0);
-
-  const totalPlatformRevenue = bookings
-    .filter(b => b.paymentStatus === 'PAID').length * PLATFORM_FEE_FLAT;
-
-  // --- View Rendering ---
-  
-  if (currentView === 'dashboard') {
-    return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard label={t('total_users')} value={totalUsers} icon={Users} color="bg-indigo-500" />
-                <StatCard label={t('total_bookings')} value={totalBookings} icon={Briefcase} color="bg-blue-500" />
-                <StatCard label={t('active_jobs')} value={activeJobsCount} icon={Activity} color="bg-orange-500" />
-                <StatCard label={t('revenue_commissions')} value={formatPrice(totalPlatformRevenue)} icon={TrendingUp} color="bg-emerald-500" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Revenue Growth</h3>
-                    <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                                <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => currency === 'ALL' ? `${v}L` : `€${v}`} />
-                                <Tooltip 
-                                    cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                                    content={({ active, payload, label }) => {
-                                        if (active && payload && payload.length) {
-                                            const val = payload[0]?.value ?? 0;
-                                            const prefix = currency === 'EUR' ? '€' : '';
-                                            const suffix = currency === 'ALL' ? ' L' : '';
-                                            return (
-                                                <div className="bg-gray-900 text-white p-3 rounded-lg shadow-xl text-xs">
-                                                    <p className="font-bold mb-1">{label}</p>
-                                                    <p className="text-emerald-400">Revenue: {prefix}{val.toLocaleString()}{suffix}</p>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <Bar dataKey="revenue" fill="#6366F1" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('recent_bookings')}</h3>
-                    <div className="space-y-4">
-                        {bookings.slice(0, 5).map(b => (
-                            <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center font-bold text-indigo-700 dark:text-indigo-300">
-                                        {b.category[0].toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold dark:text-white">{t(b.category)}</p>
-                                        <p className="text-xs text-gray-500">{b.customerName}</p>
-                                    </div>
-                                </div>
-                                <Badge status={b.status} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xl animate-fade-in">
+      <div className="bg-white dark:bg-gray-800 rounded-[2rem] w-full max-w-md shadow-2xl p-8 border dark:border-gray-700 animate-scale-in">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-xl font-black dark:text-white uppercase tracking-tight">{t('add_category')}</h3>
+          <button onClick={onClose} className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><X size={24}/></button>
         </div>
-    );
-  }
+        <form onSubmit={e => { e.preventDefault(); onAdd(formData); onClose(); setFormData({ name: '', icon: '🔧', basePrice: 500 }); }} className="space-y-5 text-left">
+           <div>
+             <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1">{t('name')}</label>
+             <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Psh. cat_painting ose Bojatisje" className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 rounded-xl text-xs dark:text-white font-black" />
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1">{t('icon')} (Emoji)</label>
+                <input required value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 rounded-xl text-center text-xl" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1">{t('base_price')}</label>
+                <input required type="number" value={formData.basePrice} onChange={e => setFormData({...formData, basePrice: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 rounded-xl text-xs dark:text-white font-black" />
+              </div>
+           </div>
+           <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-indigo-700 shadow-xl active:scale-95 transition-all mt-4">{t('save')}</button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
-  if (currentView === 'users') {
-    const filteredUsers = users.filter(u => 
-        (u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase())) &&
-        (selectedCategoryFilter === 'ALL' || u.role === selectedCategoryFilter)
-    );
+export const AdminDashboard: React.FC<Props> = ({ 
+  currentUser, 
+  users, 
+  bookings, 
+  currentView, 
+  onAddUser, 
+  onRemoveUser, 
+  platformContent, 
+  onUpdateContent, 
+  onProcessWithdrawal, 
+  serviceCategories, 
+  onAddCategory, 
+  onDeleteCategory, 
+  onSendMessage, 
+  onMarkRead, 
+  onManageFee 
+}) => {
+  const { t } = useLanguage();
+  const { formatPrice } = useCurrency();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [editingFee, setEditingFee] = useState<{ pId: string; fId: string; currentAmt: number } | null>(null);
+  const [newFeeAmount, setNewFeeAmount] = useState<string>('');
+  const [feeStatusFilter, setFeeStatusFilter] = useState<string>('ALL');
 
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('user_management')}</h2>
-                <button onClick={() => setShowAddProvider(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"><Plus size={18} /> {t('add_provider')}</button>
-            </div>
+  const stats = useMemo(() => {
+    const totalUnpaidFees = users.reduce((acc, u) => {
+      const userFees = (u.feeRequests || []).filter(f => f.status !== 'PAID').reduce((sum, f) => sum + f.amount, 0);
+      return acc + userFees;
+    }, 0);
 
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="text" placeholder="..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500" />
-                </div>
-                <select value={selectedCategoryFilter} onChange={e => setSelectedCategoryFilter(e.target.value)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    <option value="ALL">All Roles</option>
-                    <option value="CUSTOMER">Customers</option>
-                    <option value="PROVIDER">Providers</option>
-                    <option value="ADMIN">Admins</option>
-                </select>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                            <tr>
-                                <th className="px-6 py-4">{t('user')}</th>
-                                <th className="px-6 py-4">{t('role')}</th>
-                                <th className="px-6 py-4">Contact Details</th>
-                                <th className="px-6 py-4">{t('details')}</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {filteredUsers.map(u => (
-                                <tr key={u.id} className="dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <img src={u.avatarUrl} className="w-10 h-10 rounded-full" alt="" />
-                                            <div>
-                                                <div className="font-bold text-gray-900 dark:text-white">{u.name}</div>
-                                                <div className="text-xs text-gray-500">{u.email}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4"><Badge status={u.role} /></td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1.5">
-                                            {u.phone && (
-                                                <a href={`tel:${u.phone}`} className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
-                                                    <Phone size={14} />
-                                                    {u.phone}
-                                                </a>
-                                            )}
-                                            <a href={`mailto:${u.email}`} className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:underline text-xs">
-                                                <Mail size={14} />
-                                                {u.email}
-                                            </a>
-                                            {u.address && (
-                                                <div className="flex items-start gap-2 text-gray-400 text-[11px] leading-tight">
-                                                    <MapPin size={14} className="shrink-0" />
-                                                    {u.address}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {u.role === 'PROVIDER' ? (
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-xs font-medium px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 w-fit">{t(u.category || 'cat_general')}</span>
-                                                <div className="flex items-center gap-1.5"><StarRating rating={u.rating || 0} size={12} /> <span className="text-xs text-gray-500">({u.jobsCompleted} jobs)</span></div>
-                                            </div>
-                                        ) : <span className="text-gray-400">-</span>}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button onClick={() => setUserToMessage(u)} className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors" title="Send Internal Message"><MessageSquare size={18} /></button>
-                                            {u.phone && (
-                                                <a href={`tel:${u.phone}`} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-full transition-colors" title="Call User"><Phone size={18} /></a>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <AddProviderModal isOpen={showAddProvider} onClose={() => setShowAddProvider(false)} onSubmit={onAddProvider} categories={serviceCategories} />
-            <AdminMessageModal isOpen={!!userToMessage} onClose={() => setUserToMessage(null)} user={userToMessage} onSend={onAdminSendMessageToUser} />
-        </div>
-    );
-  }
-
-  if (currentView === 'services') {
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('service_management')}</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-center">
-                    <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4"><Plus size={24} /></div>
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-4">{t('add_category')}</h3>
-                    <div className="w-full space-y-3">
-                        <input placeholder={t('name')} value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm" />
-                        <div className="grid grid-cols-2 gap-3">
-                            <input placeholder={t('icon')} value={newCategory.icon} onChange={e => setNewCategory({...newCategory, icon: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm" />
-                            <input type="number" placeholder={t('base_price')} value={newCategory.basePrice} onChange={e => setNewCategory({...newCategory, basePrice: Number(e.target.value)})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm" />
-                        </div>
-                        <button onClick={() => { if(newCategory.name) { onAddCategory(newCategory); setNewCategory({name: '', icon: '🔧', basePrice: 50}); } }} className="w-full py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors">{t('confirm')}</button>
-                    </div>
-                </div>
-
-                {serviceCategories.map(cat => (
-                    <div key={cat.id} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 group">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">{cat.icon}</div>
-                            <div className="flex gap-1">
-                                <button onClick={() => { setEditingCategory(cat); setShowEditCategoryModal(true); }} className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
-                                <button onClick={() => onDeleteCategory(cat.id)} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"><Trash2 size={16} /></button>
-                            </div>
-                        </div>
-                        <h3 className="font-bold text-gray-900 dark:text-white">{t(cat.name)}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('base_price')}: {formatPrice(cat.basePrice)}/hr</p>
-                        <div className="mt-4 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                           {users.filter(u => u.category === cat.name).length} Providers Registered
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <EditCategoryModal isOpen={showEditCategoryModal} onClose={() => setShowEditCategoryModal(false)} category={editingCategory} onSave={(c) => onUpdateCategory && onUpdateCategory(c)} />
-        </div>
-    );
-  }
-
-  if (currentView === 'finance') {
-    const allWithdrawals = users.flatMap(u => u.withdrawals || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const paidBookings = bookings.filter(b => b.paymentStatus === 'PAID').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    const handleRequestAllFees = () => {
-        allFeeRequests.filter(fr => fr.status === 'PENDING').forEach(fr => {
-            if (onRequestFee) onRequestFee(fr.providerId, fr.id);
-        });
+    return {
+      totalUsers: users.length,
+      totalBookings: bookings.length,
+      activeJobs: bookings.filter(b => ['ACCEPTED', 'IN_PROGRESS'].includes(b.status)).length,
+      revenue: bookings.filter(b => b.paymentStatus === 'PAID' && b.paymentMethod === 'CARD').length * PLATFORM_FEE_FLAT,
+      unpaidCommissions: totalUnpaidFees
     };
+  }, [users, bookings]);
 
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('nav_finance')}</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-6 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-2">
-                        <TrendingUp size={24} className="text-white" />
-                        <h3 className="text-lg font-semibold text-emerald-100">{t('revenue_commissions')}</h3>
-                    </div>
-                    <p className="text-4xl font-bold">{formatPrice(totalPlatformRevenue)}</p>
+  const financialStats = useMemo(() => {
+    const pendingWithdrawals = users.flatMap(u => u.withdrawals || []).filter(w => w.status === 'PENDING');
+    const totalPendingPayoutAmount = pendingWithdrawals.reduce((acc, w) => acc + w.amount, 0);
+    const activeCommissionPotential = stats.activeJobs * PLATFORM_FEE_FLAT;
+    
+    return {
+      settledRevenue: stats.revenue,
+      pendingPayouts: totalPendingPayoutAmount,
+      payoutCount: pendingWithdrawals.length,
+      activePotential: activeCommissionPotential,
+      totalUnpaid: stats.unpaidCommissions
+    };
+  }, [users, stats]);
+
+  const allUnpaidFees = useMemo(() => {
+    return users.flatMap(u => (u.feeRequests || []).map(f => ({ ...f, pName: u.name, pId: u.id, pEmail: u.email })))
+      .filter(f => f.status !== 'PAID')
+      .filter(f => feeStatusFilter === 'ALL' || f.status === feeStatusFilter);
+  }, [users, feeStatusFilter]);
+
+  const renderView = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return (
+          <div className="space-y-8 animate-fade-in">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+                  <StatCard label={t('total_users')} value={stats.totalUsers} icon={Users} color="bg-indigo-500" />
+                  <StatCard label={t('total_bookings')} value={stats.totalBookings} icon={Briefcase} color="bg-blue-500" />
+                  <StatCard label={t('active_jobs')} value={stats.activeJobs} icon={Activity} color="bg-orange-500" />
+                  <StatCard label={t('revenue_commissions')} value={formatPrice(stats.revenue)} icon={TrendingUp} color="bg-emerald-500" />
+                  <StatCard label={t('total_owed')} value={formatPrice(stats.unpaidCommissions)} icon={AlertCircle} color="bg-red-500" />
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-[1.5rem] border dark:border-gray-700 shadow-sm flex flex-col">
+                  <h3 className="text-[10px] font-black dark:text-white mb-6 flex items-center gap-2.5 uppercase tracking-widest"><Clock size={18} className="text-indigo-600" /> {t('recent_bookings')}</h3>
+                  <div className="space-y-2">
+                      {bookings.slice(0, 5).map(b => (
+                          <div key={b.id} className="flex justify-between items-center p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border dark:border-gray-800 transition-all hover:bg-white dark:hover:bg-gray-800">
+                              <div className="min-w-0">
+                                  <p className="text-[11px] font-black dark:text-white truncate uppercase mb-0.5">{b.customerName}</p>
+                                  <p className="text-[7px] text-gray-400 uppercase font-bold tracking-widest">{t(b.category)} • {b.id.substring(0,8)}</p>
+                              </div>
+                              <Badge status={b.status} />
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+        );
+
+      case 'users':
+        return (
+          <div className="space-y-6 animate-fade-in">
+              <h2 className="text-xl font-black dark:text-white uppercase tracking-tight px-2">{t('user_management')}</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden shadow-sm overflow-x-auto">
+                  <table className="w-full text-left text-[10px] min-w-[700px]">
+                      <thead className="bg-gray-50/50 dark:bg-gray-900/50 font-black uppercase tracking-widest text-gray-400 border-b dark:border-gray-700">
+                          <tr>
+                              <th className="p-4">{t('user')}</th>
+                              <th className="p-4">{t('role')}</th>
+                              <th className="p-4">{t('contact_info')}</th>
+                              <th className="p-4">{t('status')}</th>
+                              <th className="p-4 text-right">Veprimet</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y dark:divide-gray-700">
+                          {users.map(u => (
+                              <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-colors">
+                                  <td className="p-4 flex items-center gap-3">
+                                      <img src={u.avatarUrl} className="w-9 h-9 rounded-lg object-cover border dark:border-gray-700" />
+                                      <div><p className="font-black dark:text-white uppercase text-xs">{u.name}</p><p className="text-[8px] text-gray-500 uppercase tracking-widest">{u.email}</p></div>
+                                  </td>
+                                  <td className="p-4">
+                                      <span className={`px-2 py-0.5 rounded-md font-black text-[8px] uppercase ${u.role === 'PROVIDER' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30' : u.role === 'ADMIN' ? 'bg-red-100 text-red-600 dark:bg-red-900/30' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30'}`}>
+                                          {t(`role_${u.role.toLowerCase()}`)}
+                                      </span>
+                                  </td>
+                                  <td className="p-4 font-bold text-gray-600 dark:text-gray-400">{u.phone || 'N/A'}</td>
+                                  <td className="p-4">
+                                      {u.isVerified ? (
+                                          <span className="flex items-center gap-1.5 text-green-600 font-black uppercase text-[8px] tracking-widest"><ShieldCheck size={14}/> {t('verified')}</span>
+                                      ) : (
+                                          <span className="flex items-center gap-1.5 text-yellow-600 font-black uppercase text-[8px] tracking-widest"><AlertTriangle size={14}/> {t('PENDING')}</span>
+                                      )}
+                                  </td>
+                                  <td className="p-4 text-right">
+                                      {u.id !== currentUser.id && <button onClick={() => onRemoveUser(u.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>}
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+        );
+
+      case 'services':
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center px-2">
+              <h2 className="text-xl font-black dark:text-white uppercase tracking-tight">{t('service_management')}</h2>
+              <button 
+                onClick={() => setShowAddCategoryModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 active:scale-95 transition-all"
+              >
+                <Plus size={16}/> {t('add_category')}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {serviceCategories.map(cat => (
+                <div key={cat.id} className="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] border dark:border-gray-700 shadow-sm flex flex-col justify-between group">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="text-3xl">{cat.icon}</div>
+                    <button onClick={() => onDeleteCategory(cat.id)} className="p-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
+                  </div>
+                  <div>
+                    <h4 className="font-black dark:text-white text-[11px] uppercase tracking-tight mb-1">{t(cat.name)}</h4>
+                    <p className="text-[8px] text-indigo-600 font-black uppercase tracking-widest">{t('base_price')}: {formatPrice(cat.basePrice)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'bookings':
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <h2 className="text-xl font-black dark:text-white uppercase tracking-tight px-2">{t('nav_bookings')}</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden shadow-sm overflow-x-auto">
+              <table className="w-full text-left text-[10px] min-w-[800px]">
+                <thead className="bg-gray-50/50 dark:bg-gray-900/50 font-black uppercase tracking-widest text-gray-400 border-b dark:border-gray-700">
+                  <tr>
+                    <th className="p-4">{t('job_info')}</th>
+                    <th className="p-4">{t('participants')}</th>
+                    <th className="p-4">{t('status')}</th>
+                    <th className="p-4 text-right">{t('total')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-gray-700">
+                  {bookings.map(b => (
+                    <tr key={b.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-colors">
+                      <td className="p-4">
+                        <p className="font-black dark:text-white uppercase text-xs mb-1">{t(b.category)}</p>
+                        <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">#{b.id.substring(0,8)}</p>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-[9px] font-bold">
+                          <p className="text-indigo-600 uppercase tracking-tighter">C: {b.customerName}</p>
+                          <p className="text-gray-500 uppercase tracking-tighter mt-1">P: {b.providerName || t('no_provider')}</p>
+                        </div>
+                      </td>
+                      <td className="p-4"><Badge status={b.status}/></td>
+                      <td className="p-4 text-right font-black dark:text-white">{formatPrice(b.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+
+      case 'finance':
+        return (
+          <div className="space-y-10 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><TrendingUp size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><ArrowUpRight size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('revenue_commissions')}</span>
                  </div>
-                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                     <div className="flex items-center gap-3 mb-2">
-                        <Receipt size={24} className="text-indigo-500" />
-                        <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300">{t('transactions')}</h3>
-                     </div>
-                     <p className="text-4xl font-bold text-gray-900 dark:text-white">{paidBookings.length}</p>
+                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.settledRevenue)}</h3>
+                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">Digital Settled</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><AlertCircle size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><Receipt size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('total_owed')}</span>
                  </div>
-                 <div className={`rounded-xl p-6 shadow-sm border transition-colors ${totalUnpaidCashFees > 0 ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
-                     <div className="flex items-center gap-3 mb-2">
-                        <HandCoins size={24} className={totalUnpaidCashFees > 0 ? 'text-orange-500' : 'text-gray-400'} />
-                        <h3 className={`text-lg font-semibold ${totalUnpaidCashFees > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-gray-600 dark:text-gray-300'}`}>{t('total_owed')}</h3>
-                     </div>
-                     <p className={`text-4xl font-bold ${totalUnpaidCashFees > 0 ? 'text-orange-600' : 'text-gray-900 dark:text-white'}`}>{formatPrice(totalUnpaidCashFees)}</p>
+                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.totalUnpaid)}</h3>
+                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">Pending Commissions</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><History size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><ArrowDownLeft size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('withdrawal_requests')}</span>
                  </div>
+                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.pendingPayouts)}</h3>
+                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">{financialStats.payoutCount} Active</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border-2 border-indigo-50 dark:border-gray-700 shadow-sm relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 text-indigo-600 opacity-5 group-hover:scale-110 transition-transform duration-500"><PieChart size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-xl text-indigo-600"><Activity size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400">Pipeline</span>
+                 </div>
+                 <h3 className="text-2xl font-black leading-none mb-1 dark:text-white">{formatPrice(financialStats.activePotential)}</h3>
+                 <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest">{stats.activeJobs} Jobs In-Flight</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Transaction Log */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-[500px]">
-                    <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <CreditCard size={18} className="text-green-500" /> {t('transactions')}
-                        </h3>
-                    </div>
-                    <div className="flex-1 overflow-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 sticky top-0 z-10">
-                                <tr>
-                                    <th className="px-6 py-4">{t('paid_by')}</th>
-                                    <th className="px-6 py-4">{t('total_amount')}</th>
-                                    <th className="px-6 py-4">{t('commission')}</th>
-                                    <th className="px-6 py-4">{t('net_amount')}</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {paidBookings.map(b => (
-                                    <tr key={b.id} className="dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-gray-900 dark:text-white">{b.customerName}</div>
-                                            <div className="text-xs text-gray-500">to {b.providerName}</div>
-                                            <div className="text-xs text-gray-400 mt-0.5">{new Date(b.date).toLocaleDateString()}</div>
-                                        </td>
-                                        <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{formatPrice(b.price)}</td>
-                                        <td className="px-6 py-4 text-emerald-600 font-medium">+{formatPrice(PLATFORM_FEE_FLAT)}</td>
-                                        <td className="px-6 py-4 text-indigo-600">{formatPrice(b.price - PLATFORM_FEE_FLAT)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50/20 dark:bg-gray-900/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl flex items-center justify-center shadow-inner"><Wallet size={18}/></div>
+                  <h3 className="text-[9px] font-black uppercase tracking-widest dark:text-white">{t('withdrawal_requests')}</h3>
                 </div>
-
-                {/* Withdrawal Requests */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-[500px]">
-                    <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('withdrawal_requests')}</h3>
-                    </div>
-                    <div className="flex-1 overflow-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 sticky top-0 z-10">
-                                <tr>
-                                    <th className="px-6 py-4">Provider</th>
-                                    <th className="px-6 py-4">Amount</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {allWithdrawals.map(w => {
-                                    const displayedValue = adjustedAmounts[w.id] ?? convertPrice(w.amount);
-                                    return (
-                                    <tr key={w.id} className="dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium">{w.providerName}</div>
-                                            <div className="text-xs text-gray-500">{new Date(w.date).toLocaleDateString()}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {w.status === 'PENDING' ? (
-                                                <div className="flex items-center gap-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 px-2 py-1 max-w-[120px]">
-                                                    <span className="text-gray-400 text-xs">{currency === 'EUR' ? '€' : 'L'}</span>
-                                                    <input 
-                                                        type="number" 
-                                                        className="w-full bg-transparent text-sm font-bold focus:outline-none dark:text-white"
-                                                        value={displayedValue}
-                                                        onChange={(e) => handleAdjustAmount(w.id, e.target.value)}
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <span className="font-bold">{formatPrice(w.amount)}</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4"><Badge status={w.status} /></td>
-                                        <td className="px-6 py-4">
-                                            {w.status === 'PENDING' && onProcessWithdrawal && (
-                                                <div className="flex gap-2">
-                                                    <button 
-                                                        onClick={() => handleProcessWithdrawalWrapper(w.id, 'APPROVE', adjustedAmounts[w.id] ?? convertPrice(w.amount))} 
-                                                        title="Approve (with current amount)"
-                                                        className="p-1 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                                                    >
-                                                        <CheckCircle size={16}/>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleProcessWithdrawalWrapper(w.id, 'REJECT')} 
-                                                        title="Reject"
-                                                        className="p-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-                                                    >
-                                                        <XCircle size={16}/>
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                )})}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            {/* Cash Fee Requests Section */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
-                    <div className="flex flex-col">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <HandCoins size={18} className="text-orange-500" /> {t('unpaid_fees')}
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Identified platform commissions from completed cash jobs</p>
-                    </div>
-                    <button 
-                        onClick={handleRequestAllFees}
-                        disabled={allFeeRequests.filter(fr => fr.status === 'PENDING').length === 0}
-                        className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <BellRing size={16} /> {t('request_all_fees')}
-                    </button>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                            <tr>
-                                <th className="px-6 py-4">Provider</th>
-                                <th className="px-6 py-4">Service</th>
-                                <th className="px-6 py-4">Fee Amount</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {allFeeRequests.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500 italic">
-                                        <HandCoins className="w-12 h-12 mx-auto mb-3 opacity-10" />
-                                        No pending cash fees found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                allFeeRequests.map(fr => (
-                                    <tr key={fr.id} className={`dark:text-gray-300 transition-colors ${fr.status === 'VERIFYING' ? 'bg-yellow-50 dark:bg-yellow-900/10 animate-pulse' : fr.status === 'REQUESTED' ? 'bg-orange-50/30 dark:bg-orange-900/5' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium">{fr.providerName}</div>
-                                            {fr.status === 'REQUESTED' && (
-                                                <div className="flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase mt-0.5">
-                                                    <AlertTriangle size={10} /> Already Notified
-                                                </div>
-                                            )}
-                                            {fr.status === 'VERIFYING' && (
-                                                <div className="flex items-center gap-1 text-[10px] text-yellow-600 font-bold uppercase mt-0.5">
-                                                    <Clock size={10} /> Payment Review Required
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium">{t(fr.bookingCategory)}</div>
-                                            <div className="text-[10px] text-gray-400">{new Date(fr.date).toLocaleDateString()}</div>
-                                        </td>
-                                        <td className="px-6 py-4 font-bold text-orange-600">{formatPrice(fr.amount)}</td>
-                                        <td className="px-6 py-4">
-                                            <Badge status={fr.status} />
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {fr.status === 'PENDING' && onRequestFee && (
-                                                    <button 
-                                                        onClick={() => onRequestFee(fr.providerId, fr.id)}
-                                                        className="px-3 py-1.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-lg text-xs font-bold hover:bg-orange-200 flex items-center gap-1.5 transition-colors"
-                                                    >
-                                                        <BellRing size={14} /> {t('request_fee_btn')}
-                                                    </button>
-                                                )}
-                                                {(fr.status === 'PENDING' || fr.status === 'REQUESTED' || fr.status === 'VERIFYING') && onMarkFeePaid && (
-                                                    <>
-                                                        <button 
-                                                            onClick={() => onMarkFeePaid!(fr.providerId, fr.id, 'PAID')}
-                                                            className="p-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg hover:bg-green-200 transition-colors"
-                                                            title={t('confirm')}
-                                                        >
-                                                            <CheckCircle size={16} />
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => onMarkFeePaid!(fr.providerId, fr.id, 'REJECTED')}
-                                                            className="p-1.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 transition-colors"
-                                                            title={t('REJECTED')}
-                                                        >
-                                                            <XCircle size={16} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-  }
-
-  if (currentView === 'bookings') {
-    const filteredBookings = bookings.filter(b => bookingFilter === 'ALL' || b.status === bookingFilter);
-
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('nav_bookings')}</h2>
-                <div className="flex gap-2">
-                    <select 
-                        value={bookingFilter}
-                        onChange={(e) => setBookingFilter(e.target.value as any)}
-                        className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="ALL">{t('all_statuses')}</option>
-                        <option value="PENDING">{t('PENDING')}</option>
-                        <option value="OFFER_MADE">{t('OFFER_MADE')}</option>
-                        <option value="ACCEPTED">{t('ACCEPTED')}</option>
-                        <option value="COMPLETED">{t('COMPLETED')}</option>
-                        <option value="CANCELLED">{t('CANCELLED')}</option>
-                    </select>
-                </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
-                            <tr>
-                                <th className="px-6 py-4">{t('job_info')}</th>
-                                <th className="px-6 py-4">{t('participants')}</th>
-                                <th className="px-6 py-4">{t('preferred_schedule')}</th>
-                                <th className="px-6 py-4">{t('status')}</th>
-                                <th className="px-6 py-4">{t('offer_price')}</th>
-                                <th className="px-6 py-4 text-emerald-600">{t('est_comm')}</th>
-                                <th className="px-6 py-4">{t('payment_header')}</th>
-                                <th className="px-6 py-4"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {filteredBookings.map(b => {
-                                const customer = users.find(u => u.id === b.customerId);
-                                const provider = users.find(u => u.id === b.providerId);
-                                
-                                return (
-                                <tr key={b.id} className="dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                    <td className="px-6 py-4 max-w-xs">
-                                        <div className="font-bold text-gray-900 dark:text-white">{t(b.category)}</div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{b.description}</div>
-                                        <div className="text-[10px] text-gray-400 mt-1 uppercase">Created: {new Date(b.date).toLocaleDateString()}</div>
-                                        {b.address && (
-                                            <div className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
-                                                <MapPin size={10} /> {b.address}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 w-fit">{t('customer_label')}: {b.customerName}</span>
-                                                {customer?.phone && (
-                                                    <a href={`tel:${customer.phone}`} className="text-[10px] text-gray-400 hover:text-indigo-600 flex items-center gap-1 mt-0.5 ml-2">
-                                                        <Phone size={10} /> {customer.phone}
-                                                    </a>
-                                                )}
-                                            </div>
-                                            
-                                            {b.providerName ? (
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 w-fit">{t('provider_label')}: {b.providerName}</span>
-                                                    {provider?.phone && (
-                                                        <a href={`tel:${provider.phone}`} className="text-[10px] text-gray-400 hover:text-indigo-600 flex items-center gap-1 mt-0.5 ml-2">
-                                                            <Phone size={10} /> {provider.phone}
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-gray-400 italic">{t('no_provider')}</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <div className="flex flex-col text-xs">
-                                        <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1"><Calendar size={12}/> {new Date(b.scheduledDateTime).toLocaleDateString()}</span>
-                                        <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><Clock size={12}/> {new Date(b.scheduledDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="bg-orange-600 text-white text-[7px] font-black px-3 py-1.5 rounded-full uppercase">{financialStats.payoutCount} Requests</span>
+              </div>
+              <div className="flex-1 max-h-[400px] overflow-y-auto divide-y dark:divide-gray-700 scrollbar-thin">
+                 {users.flatMap(u => u.withdrawals || []).filter(w => w.status === 'PENDING').length === 0 ? (
+                   <div className="p-20 text-center">
+                      <CheckCircle size={32} className="mx-auto text-gray-200 dark:text-gray-700 mb-4"/>
+                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">No pending payouts</p>
+                   </div>
+                 ) : users.flatMap(u => u.withdrawals || []).filter(w => w.status === 'PENDING').map(w => {
+                   const provider = users.find(u => u.id === w.providerId);
+                   return (
+                      <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-all flex flex-col md:flex-row justify-between items-center gap-4 group">
+                          <div className="flex items-center gap-3 w-full">
+                              <img src={provider?.avatarUrl} className="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-gray-800 shadow-md"/>
+                              <div className="min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                      <p className="text-[11px] font-black dark:text-white uppercase leading-none">{w.providerName}</p>
+                                      <div className="flex items-center gap-1 bg-yellow-400/10 text-yellow-600 px-1.5 py-0.5 rounded text-[7px] font-black">
+                                          <Star size={8} className="fill-yellow-600" /> {provider?.rating?.toFixed(1)}
                                       </div>
-                                    </td>
-                                    <td className="px-6 py-4"><Badge status={b.status} /></td>
-                                    <td className="px-6 py-4 font-medium">
-                                        {b.price > 0 ? formatPrice(b.price) : <span className="text-gray-400">-</span>}
-                                    </td>
-                                    <td className="px-6 py-4 font-medium text-emerald-600">
-                                        {b.price > 0 ? formatPrice(PLATFORM_FEE_FLAT) : <span className="text-gray-400">-</span>}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {b.paymentStatus === 'PAID' ? (
-                                            <span className="inline-flex items-center gap-1 text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded">
-                                                <CheckCircle size={12}/> {t('PAID')} ({b.paymentMethod})
-                                            </span>
-                                        ) : (
-                                            <span className="text-xs text-gray-400">{t('UNPAID')}</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button 
-                                            onClick={() => setActiveBookingChat(b)}
-                                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"
-                                            title={t('admin_chat_title')}
-                                        >
-                                            <MessageSquare size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            )})}
-                            {filteredBookings.length === 0 && (
-                                <tr>
-                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                                        {t('no_bookings')}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[7px] font-black text-gray-400 uppercase tracking-widest">
+                                      <span className="flex items-center gap-1">{w.method === 'PayPal' ? <Globe size={8}/> : <Banknote size={8}/>} {w.method}</span>
+                                      <span>•</span>
+                                      <span>{new Date(w.date).toLocaleDateString()}</span>
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                              <span className="text-lg font-black text-indigo-600 whitespace-nowrap">{formatPrice(w.amount)}</span>
+                              <div className="flex gap-1.5">
+                                  <button onClick={() => onProcessWithdrawal(w.id, 'APPROVE')} className="w-8 h-8 bg-emerald-600 text-white rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"><CheckCircle size={14}/></button>
+                                  <button onClick={() => onProcessWithdrawal(w.id, 'REJECT')} className="w-8 h-8 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"><X size={14}/></button>
+                              </div>
+                          </div>
+                      </div>
+                   );
+                 })}
+              </div>
             </div>
-            <ChatModal 
-                isOpen={!!activeBookingChat} 
-                onClose={() => setActiveBookingChat(null)} 
-                booking={activeBookingChat} 
-                currentUser={currentUser} 
-                onSendMessage={onSendMessage} 
-            />
-        </div>
-    );
-  }
+          </div>
+        );
 
-  if (currentView === 'content') {
-    if (!editedContent) return null;
-
-    const handleContactChange = (field: keyof PlatformContent['contact'], value: string) => {
-        setEditedContent({ ...editedContent, contact: { ...editedContent.contact, [field]: value } });
-    };
-
-    const handleSocialChange = (field: keyof PlatformContent['socialMedia'], value: string) => {
-        setEditedContent({ ...editedContent, socialMedia: { ...editedContent.socialMedia, [field]: value } });
-    };
-
-    const handleFaqChange = (index: number, field: 'question' | 'answer', value: string) => {
-        const newFaq = [...editedContent.faq];
-        newFaq[index] = { ...newFaq[index], [field]: value };
-        setEditedContent({ ...editedContent, faq: newFaq });
-    };
-
-    const addFaq = () => {
-        setEditedContent({ ...editedContent, faq: [...editedContent.faq, { question: '', answer: '' }] });
-    };
-
-    const removeFaq = (index: number) => {
-        setEditedContent({ ...editedContent, faq: editedContent.faq.filter((_, i) => i !== index) });
-    };
-
-    return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('site_content')}</h2>
-                <button onClick={handleSaveContent} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors">
-                    <Save size={20} /> {t('save')}
-                </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><FileText size={20}/> {t('footer_about')}</h3>
-                        <textarea rows={4} value={editedContent.aboutUs} onChange={(e) => setEditedContent({...editedContent, aboutUs: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><ShieldCheck size={20}/> {t('footer_terms')}</h3>
-                        <textarea rows={4} value={editedContent.termsAndConditions} onChange={(e) => setEditedContent({...editedContent, termsAndConditions: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><Lock size={20}/> {t('footer_privacy')}</h3>
-                        <textarea rows={4} value={editedContent.privacyPolicy} onChange={(e) => setEditedContent({...editedContent, privacyPolicy: e.target.value})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500" />
-                    </div>
+      case 'fees':
+        return (
+          <div className="space-y-8 animate-fade-in">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-2">
+                <div>
+                   <h2 className="text-2xl font-black dark:text-white uppercase tracking-tight">{t('fee_management')}</h2>
+                   <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mt-2">Manage outstanding platform commissions from cash bookings</p>
                 </div>
+                <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1.5 rounded-xl border dark:border-gray-700 shadow-sm">
+                   <FilterIcon size={14} className="text-gray-400 ml-2" />
+                   <select 
+                      value={feeStatusFilter} 
+                      onChange={(e) => setFeeStatusFilter(e.target.value)} 
+                      className="bg-transparent border-0 text-[9px] font-black uppercase tracking-widest dark:text-white focus:ring-0"
+                    >
+                      <option value="ALL">{t('all_statuses')}</option>
+                      <option value="PENDING">{t('PENDING')}</option>
+                      <option value="VERIFYING">{t('VERIFYING')}</option>
+                      <option value="REJECTED">{t('REJECTED')}</option>
+                   </select>
+                </div>
+             </div>
 
-                <div className="space-y-6">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><Phone size={20}/> {t('contact_info')}</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('phone')}</label>
-                                <input type="text" value={editedContent.contact.phone} onChange={(e) => handleContactChange('phone', e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
+             <div className="bg-white dark:bg-gray-800 rounded-[2rem] border dark:border-gray-700 shadow-xl overflow-hidden flex flex-col">
+                <div className="overflow-x-auto scrollbar-thin">
+                  <table className="w-full text-left text-[10px] min-w-[900px]">
+                    <thead className="bg-gray-50/50 dark:bg-gray-900/50 font-black uppercase tracking-[0.2em] text-gray-400 border-b dark:border-gray-700 sticky top-0 z-10">
+                      <tr>
+                        <th className="p-6">{t('provider_label')}</th>
+                        <th className="p-6">{t('job_info')}</th>
+                        <th className="p-6">{t('status')}</th>
+                        <th className="p-6 text-right">{t('amount')}</th>
+                        <th className="p-6 text-center">Veprimet</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y dark:divide-gray-700">
+                      {allUnpaidFees.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-32 text-center text-gray-400 font-black uppercase tracking-widest italic opacity-20">
+                            No matching fee requests found.
+                          </td>
+                        </tr>
+                      ) : allUnpaidFees.map(f => (
+                        <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-all group">
+                          <td className="p-6">
+                            <div className="flex items-center gap-3">
+                               <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 rounded-lg flex items-center justify-center font-black text-[10px]">
+                                  {f.pName[0]}
+                               </div>
+                               <div>
+                                  <p className="font-black dark:text-white uppercase text-[11px] leading-none mb-1">{f.pName}</p>
+                                  <p className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">{f.pEmail}</p>
+                               </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('email')}</label>
-                                <input type="text" value={editedContent.contact.email} onChange={(e) => handleContactChange('email', e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('address')}</label>
-                                <input type="text" value={editedContent.contact.address} onChange={(e) => handleContactChange('address', e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><Globe size={20}/> {t('social_media')}</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Facebook</label>
-                                <input type="text" value={editedContent.socialMedia.facebook} onChange={(e) => handleSocialChange('facebook', e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instagram</label>
-                                <input type="text" value={editedContent.socialMedia.instagram} onChange={(e) => handleSocialChange('instagram', e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Twitter</label>
-                                <input type="text" value={editedContent.socialMedia.twitter} onChange={(e) => handleSocialChange('twitter', e.target.value)} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2"><HelpCircle size={20}/> {t('footer_faq')}</h3>
-                            <button onClick={addFaq} className="text-sm px-3 py-1 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50">{t('add_question')}</button>
-                        </div>
-                        <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                            {editedContent.faq.map((faq, index) => (
-                                <div key={index} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg relative group border border-gray-200 dark:border-gray-600">
-                                    <button onClick={() => removeFaq(index)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Trash2 size={16} />
+                          </td>
+                          <td className="p-6">
+                            <p className="font-black dark:text-white uppercase leading-none mb-1">{t(f.bookingCategory)}</p>
+                            <p className="text-[7px] text-indigo-600 font-bold uppercase tracking-widest">{new Date(f.date).toLocaleDateString()}</p>
+                          </td>
+                          <td className="p-6">
+                             <Badge status={f.status} />
+                          </td>
+                          <td className="p-6 text-right">
+                             {editingFee?.fId === f.id ? (
+                               <div className="flex items-center justify-end gap-2 animate-fade-in">
+                                 <input 
+                                   autoFocus
+                                   type="number" 
+                                   value={newFeeAmount} 
+                                   onChange={e => setNewFeeAmount(e.target.value)} 
+                                   className="w-20 bg-white dark:bg-gray-950 border-2 border-indigo-500 rounded-lg px-2 py-1 text-right font-black text-xs"
+                                 />
+                                 <button onClick={() => {
+                                   onManageFee(f.pId, f.id, 'UPDATE', parseFloat(newFeeAmount));
+                                   setEditingFee(null);
+                                 }} className="p-1.5 bg-emerald-600 text-white rounded-md hover:scale-110 transition-transform"><Check size={14}/></button>
+                                 <button onClick={() => setEditingFee(null)} className="p-1.5 bg-red-500 text-white rounded-md hover:scale-110 transition-transform"><X size={14}/></button>
+                               </div>
+                             ) : (
+                               <div className="flex flex-col items-end">
+                                  <p className="font-black dark:text-white text-base leading-none mb-1">{formatPrice(f.amount)}</p>
+                                  <button 
+                                    onClick={() => {
+                                      setEditingFee({ pId: f.pId, fId: f.id, currentAmt: f.amount });
+                                      setNewFeeAmount(f.amount.toString());
+                                    }} 
+                                    className="text-[7px] font-black uppercase text-indigo-600 hover:underline tracking-widest"
+                                  >
+                                    {t('edit_fee')}
+                                  </button>
+                               </div>
+                             )}
+                          </td>
+                          <td className="p-6">
+                            <div className="flex items-center justify-center gap-2">
+                               {f.status === 'VERIFYING' && (
+                                 <>
+                                   <button 
+                                      onClick={() => onManageFee(f.pId, f.id, 'APPROVE')} 
+                                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[7px] hover:bg-emerald-700 transition-all shadow-lg active:scale-95"
+                                    >
+                                      <CheckCircle2 size={12}/> {t('approve_payment')}
                                     </button>
-                                    <input 
-                                        placeholder="Question" 
-                                        value={faq.question} 
-                                        onChange={(e) => handleFaqChange(index, 'question', e.target.value)} 
-                                        className="w-full mb-2 px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded text-sm font-medium dark:text-white"
-                                    />
-                                    <textarea 
-                                        placeholder="Answer" 
-                                        rows={2} 
-                                        value={faq.answer} 
-                                        onChange={(e) => handleFaqChange(index, 'answer', e.target.value)} 
-                                        className="w-full px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded text-sm dark:text-gray-200"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                                    <button 
+                                      onClick={() => onManageFee(f.pId, f.id, 'REJECT')} 
+                                      className="flex items-center gap-1.5 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl font-black uppercase tracking-widest text-[7px] hover:bg-red-600 hover:text-white transition-all active:scale-95"
+                                    >
+                                      <X size={12}/> {t('reject_payment')}
+                                    </button>
+                                 </>
+                               )}
+                               {f.status === 'PENDING' && (
+                                 <button 
+                                    onClick={() => onManageFee(f.pId, f.id, 'REMIND')} 
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border-2 border-indigo-600 text-indigo-600 rounded-xl font-black uppercase tracking-widest text-[7px] hover:bg-indigo-600 hover:text-white transition-all active:scale-95 shadow-sm"
+                                  >
+                                    <BellRing size={12} /> {t('request_fee_btn')}
+                                  </button>
+                               )}
+                               {f.status === 'REJECTED' && (
+                                 <button 
+                                    onClick={() => onManageFee(f.pId, f.id, 'APPROVE')} 
+                                    className="px-3 py-2 border-2 border-emerald-600 text-emerald-600 rounded-xl font-black uppercase tracking-widest text-[7px] hover:bg-emerald-600 hover:text-white transition-all"
+                                  >
+                                    Force Approve
+                                  </button>
+                               )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-            </div>
-        </div>
-    );
-  }
+             </div>
+          </div>
+        );
 
-  return <div className="p-12 text-center text-gray-500">{t('view_not_found')}</div>;
+      case 'content':
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <h2 className="text-xl font-black dark:text-white uppercase tracking-tight px-2">{t('nav_content')}</h2>
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-[1.5rem] border dark:border-gray-700 shadow-sm space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div>
+                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">{t('contact_info')} Email</label>
+                   <input value={platformContent.contact.email} className="w-full bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 p-3 rounded-xl text-[10px] dark:text-white font-bold"/>
+                 </div>
+                 <div>
+                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Phone</label>
+                   <input value={platformContent.contact.phone} className="w-full bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 p-3 rounded-xl text-[10px] dark:text-white font-bold"/>
+                 </div>
+               </div>
+               <button className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 active:scale-95 transition-all"><Save size={16}/> {t('save')}</button>
+            </div>
+          </div>
+        );
+
+      case 'profile':
+        return <ProfileView user={currentUser} onEdit={() => setShowEditModal(true)} />;
+
+      default:
+        return <div className="p-20 text-center text-gray-400 uppercase font-black text-xs tracking-widest">{t('view_not_found')}</div>;
+    }
+  };
+
+  return (
+    <div className="space-y-10 pb-16">
+      {renderView()}
+      <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} user={currentUser} onSave={() => {}} />
+      <AddCategoryModal isOpen={showAddCategoryModal} onClose={() => setShowAddCategoryModal(false)} onAdd={onAddCategory} />
+    </div>
+  );
 };
