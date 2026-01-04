@@ -74,6 +74,7 @@ export interface User {
   availability?: Availability;
   withdrawals?: Withdrawal[];
   feeRequests?: FeeRequest[]; 
+  location?: { lat: number; lng: number };
 }
 
 export interface Message {
@@ -121,6 +122,8 @@ export interface ServiceRequest {
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
   aiPriceRange?: string; 
+  beforeImage?: string;
+  afterImage?: string;
 }
 
 export interface AIAnalysisResult {

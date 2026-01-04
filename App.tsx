@@ -314,13 +314,13 @@ function HomeHeroApp() {
     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, messages: b.messages.map(m => m.senderId !== activeUser.id ? { ...m, isRead: true } : m) } : b));
   };
 
-  const handleUpdateStatus = (bookingId: string, status: ServiceRequest['status'], finalPrice?: number) => {
+  const handleUpdateStatus = (bookingId: string, status: ServiceRequest['status'], finalPrice?: number, beforeImg?: string, afterImg?: string) => {
     const b = bookings.find(b => b.id === bookingId);
     if (b) {
         if (status === 'COMPLETED') notifyUser(b.customerId, 'notification_job_completed_title', 'notification_job_completed_body', { category: t(b.category) }, 'SUCCESS', bookingId);
         else if (status === 'IN_PROGRESS') notifyUser(b.customerId, 'notification_job_started_title', 'notification_job_started_body', {}, 'INFO', bookingId);
     }
-    setBookings(p => p.map(b => b.id === bookingId ? { ...b, status, price: finalPrice !== undefined ? finalPrice : b.price } : b));
+    setBookings(p => p.map(b => b.id === bookingId ? { ...b, status, price: finalPrice !== undefined ? finalPrice : b.price, beforeImage: beforeImg || b.beforeImage, afterImage: afterImg || b.afterImage } : b));
   };
 
   const handleRateService = (bookingId: string, rating: number, review: string) => { setBookings(p => p.map(b => b.id === bookingId ? { ...b, rating, review } : b)); };

@@ -45,7 +45,7 @@ interface Props {
   user: User;
   bookings: ServiceRequest[];
   currentView: string;
-  onUpdateStatus: (bookingId: string, status: ServiceRequest['status'], price?: number) => void;
+  onUpdateStatus: (bookingId: string, status: ServiceRequest['status'], price?: number, beforeImg?: string, afterImg?: string) => void;
   onAcceptJob: (bookingId: string) => void;
   onSendMessage: (bookingId: string, text: string) => void;
   onMarkRead: (bookingId: string) => void;
@@ -108,6 +108,7 @@ const AvailabilityModal: React.FC<{ isOpen: boolean; onClose: () => void; availa
             </div>
             <div>
               <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 tracking-widest">{t('end_time')}</label>
+              {/* FIXED: Changed setWindow to setEndTime */}
               <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full p-4 bg-gray-50 dark:bg-gray-900 border-0 rounded-2xl text-xs font-black dark:text-white" />
             </div>
           </div>
@@ -490,7 +491,7 @@ export const ProviderDashboard: React.FC<Props> = ({
       <WithdrawalModal isOpen={showWithdrawalModal} onClose={() => setShowWithdrawalModal(false)} availableBalance={walletBalance} onWithdraw={onWithdrawFunds} />
       <AvailabilityModal isOpen={showAvailabilityModal} onClose={() => setShowAvailabilityModal(false)} availability={user.availability} onSave={onUpdateAvailability} />
       <OfferModal isOpen={!!offerBookingId} onClose={() => setOfferBookingId(null)} onSubmit={(min, max) => offerBookingId && onMakeOffer(offerBookingId, min, max)} />
-      <JobCompletionModal isOpen={!!completionBooking} onClose={() => setCompletionBooking(null)} booking={completionBooking} onComplete={(id, price) => onUpdateStatus(id, 'COMPLETED', price)} />
+      <JobCompletionModal isOpen={!!completionBooking} onClose={() => setCompletionBooking(null)} booking={completionBooking} onComplete={(id, price, before, after) => onUpdateStatus(id, 'COMPLETED', price, before, after)} />
       <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} user={user} onSave={onUpdateUser} />
     </div>
   );

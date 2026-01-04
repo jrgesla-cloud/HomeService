@@ -68,7 +68,9 @@ import {
   ChevronDown,
   ChevronLeft,
   Smile,
-  Paperclip
+  Paperclip,
+  Image as ImageIcon,
+  Map as MapIcon
 } from 'lucide-react';
 import { UserRole, ServiceRequest, User as UserType, PaymentMethod, Message, PlatformContent, AppNotification, CategoryItem } from '../types';
 import { translations, Language } from '../translations';
@@ -136,6 +138,48 @@ export const useLanguage = () => {
 };
 
 // --- Shared Components ---
+
+export const SimpleMap: React.FC<{ providers: UserType[] }> = ({ providers }) => {
+  const { t } = useLanguage();
+  return (
+    <div className="relative w-full h-64 bg-slate-100 dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center group">
+       <div className="absolute inset-0 bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/19.8189,41.3275,12/800x400?access_token=pk.dummy')] opacity-50 bg-cover grayscale" />
+       <div className="relative z-10 flex flex-col items-center">
+          <MapIcon size={40} className="text-indigo-600 mb-2 animate-bounce" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-white/80 dark:bg-gray-800/80 px-4 py-2 rounded-full backdrop-blur-md">
+            {providers.length} Ekspertë Aktivë afër jush
+          </p>
+       </div>
+       {/* Simulated Markers */}
+       {providers.slice(0, 5).map((p, i) => (
+         <div key={p.id} className="absolute w-8 h-8 transition-all hover:scale-125 cursor-pointer shadow-xl rounded-xl overflow-hidden border-2 border-white animate-pulse" 
+           style={{ 
+             top: `${20 + i * 15}%`, 
+             left: `${30 + (i % 3) * 20}%`,
+             animationDelay: `${i * 0.5}s`
+           }}>
+           <img src={p.avatarUrl} className="w-full h-full object-cover" alt={p.name} />
+         </div>
+       ))}
+    </div>
+  );
+};
+
+export const EvidenceGallery: React.FC<{ before?: string; after?: string }> = ({ before, after }) => {
+  const { t } = useLanguage();
+  return (
+    <div className="grid grid-cols-2 gap-4 my-4">
+      <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 rounded-2xl overflow-hidden border dark:border-gray-700">
+        {before ? <img src={before} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-gray-400"><ImageIcon size={20}/><p className="text-[7px] font-black uppercase tracking-widest mt-1">Problem (Before)</p></div>}
+        <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/50 text-white text-[7px] font-black uppercase rounded">Para</div>
+      </div>
+      <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 rounded-2xl overflow-hidden border dark:border-gray-700">
+        {after ? <img src={after} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-gray-400"><ImageIcon size={20}/><p className="text-[7px] font-black uppercase tracking-widest mt-1">Result (After)</p></div>}
+        <div className="absolute top-2 left-2 px-2 py-0.5 bg-indigo-600 text-white text-[7px] font-black uppercase rounded">Pas</div>
+      </div>
+    </div>
+  );
+};
 
 export const Badge: React.FC<{ status: string }> = ({ status }) => {
   const { t } = useLanguage();
@@ -911,20 +955,46 @@ export const OfferModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
 };
 
 // JobCompletionModal
-export const JobCompletionModal: React.FC<{ isOpen: boolean; onClose: () => void; booking: ServiceRequest | null; onComplete: (bid: string, price: number) => void }> = ({ isOpen, onClose, booking, onComplete }) => {
+export const JobCompletionModal: React.FC<{ isOpen: boolean; onClose: () => void; booking: ServiceRequest | null; onComplete: (bid: string, price: number, beforeImg?: string, afterImg?: string) => void }> = ({ isOpen, onClose, booking, onComplete }) => {
   const { t } = useLanguage();
   const [price, setPrice] = useState('0');
+  const [before, setBefore] = useState('');
+  const [after, setAfter] = useState('');
+
   if (!isOpen || !booking) return null;
+
+  const handleSimulateUpload = (type: 'before' | 'after') => {
+    // Simulate photo upload with a random unplash image
+    const url = `https://picsum.photos/seed/${Math.random()}/400/300`;
+    if (type === 'before') setBefore(url);
+    else setAfter(url);
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xl animate-fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-md shadow-2xl p-10 border dark:border-gray-700 animate-scale-in">
+      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-md shadow-2xl p-10 border dark:border-gray-700 animate-scale-in scrollbar-thin max-h-[90vh] overflow-y-auto">
         <h3 className="text-2xl font-black dark:text-white uppercase tracking-tight mb-4">{t('complete_job')}</h3>
         <p className="text-[10px] text-gray-400 font-bold mb-8 uppercase tracking-widest leading-relaxed text-left">{t('enter_final_price_desc')}</p>
-        <div className="mb-10 text-left">
-          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">{t('final_price')}</label>
-          <input type="number" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 rounded-2xl text-2xl font-black dark:text-white" />
+        
+        <div className="space-y-6 mb-10 text-left">
+          <div>
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Dëshmitë Vizuale (Evidence)</label>
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => handleSimulateUpload('before')} className="aspect-video bg-gray-50 dark:bg-gray-900 border-2 border-dashed dark:border-gray-800 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-indigo-500 transition-all overflow-hidden relative">
+                {before ? <img src={before} className="w-full h-full object-cover" /> : <><Camera size={24}/><span className="text-[8px] font-black uppercase mt-1">Shto foto PARA</span></>}
+              </button>
+              <button onClick={() => handleSimulateUpload('after')} className="aspect-video bg-gray-50 dark:bg-gray-900 border-2 border-dashed dark:border-gray-800 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-indigo-500 transition-all overflow-hidden relative">
+                {after ? <img src={after} className="w-full h-full object-cover" /> : <><Camera size={24}/><span className="text-[8px] font-black uppercase mt-1">Shto foto PAS</span></>}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">{t('final_price')}</label>
+            <input type="number" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 rounded-2xl text-2xl font-black dark:text-white" />
+          </div>
         </div>
-        <button onClick={() => { onComplete(booking.id, parseFloat(price)); onClose(); }} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-emerald-700 active:scale-95 transition-all">{t('confirm_completion')}</button>
+        
+        <button onClick={() => { onComplete(booking.id, parseFloat(price), before, after); onClose(); }} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-emerald-700 active:scale-95 transition-all">{t('confirm_completion')}</button>
       </div>
     </div>
   );

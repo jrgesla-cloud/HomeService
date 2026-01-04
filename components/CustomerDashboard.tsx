@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ServiceRequest, AIAnalysisResult, User, PaymentMethod, CategoryItem, ServiceOffer } from '../types';
 import { analyzeServiceRequest } from '../services/geminiService';
-import { Badge, ChatModal, RatingModal, PaymentModal, useLanguage, useCurrency, MessagesView, ProfileView, EditProfileModal } from './Shared';
-import { Sparkles, MapPin, Calendar, Search, Loader2, Star, MessageSquare, X, PlusCircle, ShieldCheck, ChevronRight, ChevronLeft, Clock, Hammer, Play, Zap, User as UserIcon, LayoutGrid, CheckCircle2, Info, Gavel, CalendarClock, CreditCard, ArrowRight } from 'lucide-react';
+import { Badge, ChatModal, RatingModal, PaymentModal, useLanguage, useCurrency, MessagesView, ProfileView, EditProfileModal, EvidenceGallery } from './Shared';
+import { Sparkles, MapPin, Calendar, Search, Loader2, Star, MessageSquare, X, PlusCircle, ShieldCheck, ChevronRight, ChevronLeft, Clock, Hammer, Play, Zap, User as UserIcon, LayoutGrid, CheckCircle2, Info, Gavel, CalendarClock, CreditCard, ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
 interface Props {
   user: User;
@@ -136,6 +137,7 @@ export const CustomerDashboard: React.FC<Props> = ({
   const [ratingBooking, setRatingBooking] = useState<ServiceRequest | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [viewingOffersBooking, setViewingOffersBooking] = useState<ServiceRequest | null>(null);
+  const [aiSummary, setAiSummary] = useState<string>('');
 
   const activeView = currentView === 'dashboard' ? 'categories' : currentView;
   
@@ -143,6 +145,22 @@ export const CustomerDashboard: React.FC<Props> = ({
   const activeOffersList = useMemo(() => {
     return bookings.filter(b => b.status === 'OFFER_MADE').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [bookings]);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      if (bookings.length === 0) return;
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const prompt = `As a helpful assistant, summarize the following user service requests in ONE short encouraging sentence in ${language === 'sq' ? 'Albanian' : 'English'}: ${JSON.stringify(bookings.slice(0,3))}`;
+        const response = await ai.models.generateContent({
+           model: 'gemini-3-flash-preview',
+           contents: prompt,
+        });
+        setAiSummary(response.text || '');
+      } catch (e) { console.error(e); }
+    };
+    fetchSummary();
+  }, [bookings.length, language]);
 
   const handleAISearch = async () => {
     if (!searchQuery.trim()) return;
@@ -213,8 +231,11 @@ export const CustomerDashboard: React.FC<Props> = ({
                 <div className="absolute top-0 right-0 p-10 opacity-10 translate-x-1/4 -translate-y-1/4"><Sparkles size={250} /></div>
                 <div className="relative z-10 max-w-3xl">
                     <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-[0.2em] mb-3">
-                      HomeHero AI
+                      HomeHero AI Assistant
                     </span>
+                    {aiSummary && (
+                      <p className="text-indigo-100 font-bold italic mb-4 text-sm md:text-base animate-fade-in">"{aiSummary}"</p>
+                    )}
                     <h2 className="text-2xl md:text-4xl font-black mb-6 leading-[1.1] tracking-tighter">
                       {t('find_perfect_pro')}
                     </h2>
@@ -365,9 +386,9 @@ export const CustomerDashboard: React.FC<Props> = ({
                   <p className="font-black text-lg italic uppercase tracking-widest">{t('no_bookings')}</p>
                 </div>
               ) : bookings.map(b => (
-                  <div key={b.id} className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all hover:shadow-lg mb-4">
+                  <div key={b.id} className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all hover:shadow-lg mb-4 overflow-hidden">
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-4 mb-3">
                               <span className="text-xl font-black dark:text-white uppercase tracking-tight">{t(b.category)}</span>
                               <Badge status={b.status} />
@@ -378,6 +399,12 @@ export const CustomerDashboard: React.FC<Props> = ({
                               )}
                             </div>
                             <p className="text-base text-gray-600 dark:text-gray-400 mb-5 leading-relaxed font-bold italic">"{b.description}"</p>
+                            
+                            {/* Evidence Gallery */}
+                            {(b.beforeImage || b.afterImage) && (
+                              <EvidenceGallery before={b.beforeImage} after={b.afterImage} />
+                            )}
+
                             <div className="flex flex-wrap gap-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                                <span className="flex items-center gap-2"><Calendar size={20} className="text-indigo-600" /> {new Date(b.scheduledDateTime).toLocaleDateString()}</span>
                                <span className="flex items-center gap-2"><MapPin size={20} className="text-indigo-600" /> {b.address}</span>
