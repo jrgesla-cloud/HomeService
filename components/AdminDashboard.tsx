@@ -70,7 +70,6 @@ interface Props {
 
 const PLATFORM_FEE_FLAT = 500; 
 
-// --- Sub-component for adding category ---
 const AddCategoryModal: React.FC<{ isOpen: boolean; onClose: () => void; onAdd: (c: any) => void }> = ({ isOpen, onClose, onAdd }) => {
   const { t } = useLanguage();
   const [formData, setFormData] = useState({ name: '', icon: '🔧', basePrice: 500 });
@@ -87,7 +86,7 @@ const AddCategoryModal: React.FC<{ isOpen: boolean; onClose: () => void; onAdd: 
         <form onSubmit={e => { e.preventDefault(); onAdd(formData); onClose(); setFormData({ name: '', icon: '🔧', basePrice: 500 }); }} className="space-y-5 text-left">
            <div>
              <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1">{t('name')}</label>
-             <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Psh. cat_painting ose Bojatisje" className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 rounded-xl text-xs dark:text-white font-black" />
+             <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Psh. cat_painting" className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-800 rounded-xl text-xs dark:text-white font-black" />
            </div>
            <div className="grid grid-cols-2 gap-4">
               <div>
@@ -132,17 +131,27 @@ export const AdminDashboard: React.FC<Props> = ({
   const [feeStatusFilter, setFeeStatusFilter] = useState<string>('ALL');
 
   const stats = useMemo(() => {
-    const totalUnpaidFees = users.reduce((acc, u) => {
-      const userFees = (u.feeRequests || []).filter(f => f.status !== 'PAID').reduce((sum, f) => sum + f.amount, 0);
-      return acc + userFees;
+    // 1. Digital Commissions (Paid Card Bookings)
+    const digitalRev = bookings.filter(b => b.paymentStatus === 'PAID' && b.paymentMethod === 'CARD').length * PLATFORM_FEE_FLAT;
+    
+    // 2. Paid Cash Fees (Liquidated)
+    const settledCashFees = users.reduce((acc, u) => {
+      const paidFees = (u.feeRequests || []).filter(f => f.status === 'PAID').reduce((sum, f) => sum + f.amount, 0);
+      return acc + paidFees;
+    }, 0);
+
+    // 3. Unpaid Fees (Still owed by providers)
+    const unpaidFees = users.reduce((acc, u) => {
+      const owed = (u.feeRequests || []).filter(f => f.status !== 'PAID').reduce((sum, f) => sum + f.amount, 0);
+      return acc + owed;
     }, 0);
 
     return {
       totalUsers: users.length,
       totalBookings: bookings.length,
       activeJobs: bookings.filter(b => ['ACCEPTED', 'IN_PROGRESS'].includes(b.status)).length,
-      revenue: bookings.filter(b => b.paymentStatus === 'PAID' && b.paymentMethod === 'CARD').length * PLATFORM_FEE_FLAT,
-      unpaidCommissions: totalUnpaidFees
+      revenue: digitalRev + settledCashFees,
+      unpaidCommissions: unpaidFees
     };
   }, [users, bookings]);
 
@@ -193,6 +202,100 @@ export const AdminDashboard: React.FC<Props> = ({
                       ))}
                   </div>
               </div>
+          </div>
+        );
+
+      case 'finance':
+        return (
+          <div className="space-y-10 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><TrendingUp size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><ArrowUpRight size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('revenue_commissions')}</span>
+                 </div>
+                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.settledRevenue)}</h3>
+                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">Settled Commissions</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><AlertCircle size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><Receipt size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('total_owed')}</span>
+                 </div>
+                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.totalUnpaid)}</h3>
+                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">Awaiting Liquidation</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><History size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><ArrowDownLeft size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('withdrawal_requests')}</span>
+                 </div>
+                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.pendingPayouts)}</h3>
+                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">{financialStats.payoutCount} Active</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border-2 border-indigo-50 dark:border-gray-700 shadow-sm relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 text-indigo-600 opacity-5 group-hover:scale-110 transition-transform duration-500"><PieChart size={100} /></div>
+                 <div className="flex items-center gap-2 mb-6">
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-xl text-indigo-600"><Activity size={18}/></div>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400">Pipeline</span>
+                 </div>
+                 <h3 className="text-2xl font-black leading-none mb-1 dark:text-white">{formatPrice(financialStats.activePotential)}</h3>
+                 <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest">{stats.activeJobs} Jobs In-Flight</p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50/20 dark:bg-gray-900/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl flex items-center justify-center shadow-inner"><Wallet size={18}/></div>
+                  <h3 className="text-[9px] font-black uppercase tracking-widest dark:text-white">{t('withdrawal_requests')}</h3>
+                </div>
+                <span className="bg-orange-600 text-white text-[7px] font-black px-3 py-1.5 rounded-full uppercase">{financialStats.payoutCount} Requests</span>
+              </div>
+              <div className="flex-1 max-h-[400px] overflow-y-auto divide-y dark:divide-gray-700 scrollbar-thin">
+                 {users.flatMap(u => u.withdrawals || []).filter(w => w.status === 'PENDING').length === 0 ? (
+                   <div className="p-20 text-center">
+                      <CheckCircle size={32} className="mx-auto text-gray-200 dark:text-gray-700 mb-4"/>
+                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">No pending payouts</p>
+                   </div>
+                 ) : users.flatMap(u => u.withdrawals || []).filter(w => w.status === 'PENDING').map(w => {
+                   const provider = users.find(u => u.id === w.providerId);
+                   return (
+                      <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-all flex flex-col md:flex-row justify-between items-center gap-4 group">
+                          <div className="flex items-center gap-3 w-full">
+                              <img src={provider?.avatarUrl} className="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-gray-800 shadow-md"/>
+                              <div className="min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                      <p className="text-[11px] font-black dark:text-white uppercase leading-none">{w.providerName}</p>
+                                      <div className="flex items-center gap-1 bg-yellow-400/10 text-yellow-600 px-1.5 py-0.5 rounded text-[7px] font-black">
+                                          <Star size={8} className="fill-yellow-600" /> {provider?.rating?.toFixed(1)}
+                                      </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[7px] font-black text-gray-400 uppercase tracking-widest">
+                                      <span className="flex items-center gap-1">{w.method === 'PayPal' ? <Globe size={8}/> : <Banknote size={8}/>} {w.method}</span>
+                                      <span>•</span>
+                                      <span>{new Date(w.date).toLocaleDateString()}</span>
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                              <span className="text-lg font-black text-indigo-600 whitespace-nowrap">{formatPrice(w.amount)}</span>
+                              <div className="flex gap-1.5">
+                                  <button onClick={() => onProcessWithdrawal(w.id, 'APPROVE')} className="w-8 h-8 bg-emerald-600 text-white rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"><CheckCircle size={14}/></button>
+                                  <button onClick={() => onProcessWithdrawal(w.id, 'REJECT')} className="w-8 h-8 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"><X size={14}/></button>
+                              </div>
+                          </div>
+                      </div>
+                   );
+                 })}
+              </div>
+            </div>
           </div>
         );
 
@@ -304,100 +407,6 @@ export const AdminDashboard: React.FC<Props> = ({
                   ))}
                 </tbody>
               </table>
-            </div>
-          </div>
-        );
-
-      case 'finance':
-        return (
-          <div className="space-y-10 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><TrendingUp size={100} /></div>
-                 <div className="flex items-center gap-2 mb-6">
-                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><ArrowUpRight size={18}/></div>
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('revenue_commissions')}</span>
-                 </div>
-                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.settledRevenue)}</h3>
-                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">Digital Settled</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><AlertCircle size={100} /></div>
-                 <div className="flex items-center gap-2 mb-6">
-                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><Receipt size={18}/></div>
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('total_owed')}</span>
-                 </div>
-                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.totalUnpaid)}</h3>
-                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">Pending Commissions</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500"><History size={100} /></div>
-                 <div className="flex items-center gap-2 mb-6">
-                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md"><ArrowDownLeft size={18}/></div>
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">{t('withdrawal_requests')}</span>
-                 </div>
-                 <h3 className="text-2xl font-black leading-none mb-1">{formatPrice(financialStats.pendingPayouts)}</h3>
-                 <p className="text-[8px] font-bold opacity-70 uppercase tracking-widest">{financialStats.payoutCount} Active</p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border-2 border-indigo-50 dark:border-gray-700 shadow-sm relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-4 text-indigo-600 opacity-5 group-hover:scale-110 transition-transform duration-500"><PieChart size={100} /></div>
-                 <div className="flex items-center gap-2 mb-6">
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-xl text-indigo-600"><Activity size={18}/></div>
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400">Pipeline</span>
-                 </div>
-                 <h3 className="text-2xl font-black leading-none mb-1 dark:text-white">{formatPrice(financialStats.activePotential)}</h3>
-                 <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest">{stats.activeJobs} Jobs In-Flight</p>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
-              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50/20 dark:bg-gray-900/20">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl flex items-center justify-center shadow-inner"><Wallet size={18}/></div>
-                  <h3 className="text-[9px] font-black uppercase tracking-widest dark:text-white">{t('withdrawal_requests')}</h3>
-                </div>
-                <span className="bg-orange-600 text-white text-[7px] font-black px-3 py-1.5 rounded-full uppercase">{financialStats.payoutCount} Requests</span>
-              </div>
-              <div className="flex-1 max-h-[400px] overflow-y-auto divide-y dark:divide-gray-700 scrollbar-thin">
-                 {users.flatMap(u => u.withdrawals || []).filter(w => w.status === 'PENDING').length === 0 ? (
-                   <div className="p-20 text-center">
-                      <CheckCircle size={32} className="mx-auto text-gray-200 dark:text-gray-700 mb-4"/>
-                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">No pending payouts</p>
-                   </div>
-                 ) : users.flatMap(u => u.withdrawals || []).filter(w => w.status === 'PENDING').map(w => {
-                   const provider = users.find(u => u.id === w.providerId);
-                   return (
-                      <div key={w.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-all flex flex-col md:flex-row justify-between items-center gap-4 group">
-                          <div className="flex items-center gap-3 w-full">
-                              <img src={provider?.avatarUrl} className="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-gray-800 shadow-md"/>
-                              <div className="min-w-0">
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                      <p className="text-[11px] font-black dark:text-white uppercase leading-none">{w.providerName}</p>
-                                      <div className="flex items-center gap-1 bg-yellow-400/10 text-yellow-600 px-1.5 py-0.5 rounded text-[7px] font-black">
-                                          <Star size={8} className="fill-yellow-600" /> {provider?.rating?.toFixed(1)}
-                                      </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-[7px] font-black text-gray-400 uppercase tracking-widest">
-                                      <span className="flex items-center gap-1">{w.method === 'PayPal' ? <Globe size={8}/> : <Banknote size={8}/>} {w.method}</span>
-                                      <span>•</span>
-                                      <span>{new Date(w.date).toLocaleDateString()}</span>
-                                  </div>
-                              </div>
-                          </div>
-                          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                              <span className="text-lg font-black text-indigo-600 whitespace-nowrap">{formatPrice(w.amount)}</span>
-                              <div className="flex gap-1.5">
-                                  <button onClick={() => onProcessWithdrawal(w.id, 'APPROVE')} className="w-8 h-8 bg-emerald-600 text-white rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"><CheckCircle size={14}/></button>
-                                  <button onClick={() => onProcessWithdrawal(w.id, 'REJECT')} className="w-8 h-8 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"><X size={14}/></button>
-                              </div>
-                          </div>
-                      </div>
-                   );
-                 })}
-              </div>
             </div>
           </div>
         );

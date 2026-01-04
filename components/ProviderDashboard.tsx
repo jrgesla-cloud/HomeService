@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, ServiceRequest, Availability, Message } from '../types';
+import { User, ServiceRequest, Availability, Message, FeeRequest } from '../types';
 import { Badge, StatCard, ChatModal, WithdrawalModal, useLanguage, useCurrency, MessagesView, OfferModal, JobCompletionModal, ProfileView, EditProfileModal } from './Shared';
 import { 
   Briefcase, 
@@ -36,9 +36,10 @@ import {
   Banknote,
   Globe,
   MoreVertical,
-  Navigation
+  Navigation,
+  CalendarDays,
+  Send
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 interface Props {
   user: User;
@@ -59,6 +60,77 @@ interface Props {
 
 const PLATFORM_FEE_FLAT = 500;
 
+const AvailabilityModal: React.FC<{ isOpen: boolean; onClose: () => void; availability?: Availability; onSave: (a: Availability) => void }> = ({ isOpen, onClose, availability, onSave }) => {
+  const { t } = useLanguage();
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const [selectedDays, setSelectedDays] = useState<string[]>(availability?.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+  const [startTime, setStartTime] = useState(availability?.startTime || '08:00');
+  const [endTime, setEndTime] = useState(availability?.endTime || '17:00');
+
+  if (!isOpen) return null;
+
+  const toggleDay = (day: string) => {
+    setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xl animate-fade-in">
+      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-md shadow-2xl p-8 border dark:border-gray-700 animate-scale-in">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-xl font-black dark:text-white uppercase tracking-tight">{t('manage_availability')}</h3>
+          <button onClick={onClose} className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><X size={24}/></button>
+        </div>
+        
+        <div className="space-y-6">
+          <div>
+            <label className="block text-[10px] font-black uppercase text-gray-400 mb-3 ml-1 tracking-widest">{t('working_days')}</label>
+            <div className="flex flex-wrap gap-2">
+              {days.map(day => (
+                <button
+                  key={day}
+                  onClick={() => toggleDay(day)}
+                  className={`w-10 h-10 rounded-xl text-[10px] font-black uppercase transition-all border-2 ${
+                    selectedDays.includes(day) 
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                    : 'border-gray-100 dark:border-gray-700 text-gray-400 dark:text-gray-500'
+                  }`}
+                >
+                  {day.substring(0, 3)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 tracking-widest">{t('start_time')}</label>
+              <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full p-4 bg-gray-50 dark:bg-gray-900 border-0 rounded-2xl text-xs font-black dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 tracking-widest">{t('end_time')}</label>
+              <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full p-4 bg-gray-50 dark:bg-gray-900 border-0 rounded-2xl text-xs font-black dark:text-white" />
+            </div>
+          </div>
+
+          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center gap-3 border border-indigo-100 dark:border-indigo-800">
+            <Info size={18} className="text-indigo-600" />
+            <p className="text-[9px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-widest leading-relaxed">
+              Ky orar do t'u shfaqet klientëve kur ata tentojnë të bëjnë një rezervim direkt me ju.
+            </p>
+          </div>
+
+          <button 
+            onClick={() => { onSave({ workingDays: selectedDays, startTime, endTime }); onClose(); }}
+            className="w-full py-5 bg-indigo-600 text-white rounded-[1.25rem] font-black uppercase tracking-widest text-xs shadow-xl hover:bg-indigo-700 active:scale-95 transition-all mt-4"
+          >
+            {t('save')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ProviderDashboard: React.FC<Props> = ({ 
   user, 
   bookings, 
@@ -78,17 +150,14 @@ export const ProviderDashboard: React.FC<Props> = ({
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
   
-  // Modals
   const [selectedChatBooking, setSelectedChatBooking] = useState<ServiceRequest | null>(null);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [offerBookingId, setOfferBookingId] = useState<string | null>(null);
   const [completionBooking, setCompletionBooking] = useState<ServiceRequest | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-
-  // Calendar State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
-  // Generate date ribbon (14 days)
   const dateRibbon = useMemo(() => {
     return Array.from({ length: 14 }, (_, i) => {
       const d = new Date();
@@ -97,7 +166,6 @@ export const ProviderDashboard: React.FC<Props> = ({
     });
   }, []);
 
-  // Data Filtering
   const myJobs = useMemo(() => bookings.filter(b => b.providerId === user.id), [bookings, user.id]);
   const activeJobs = useMemo(() => myJobs.filter(b => b.status === 'ACCEPTED' || b.status === 'IN_PROGRESS'), [myJobs]);
   
@@ -114,9 +182,13 @@ export const ProviderDashboard: React.FC<Props> = ({
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [bookings, user.id, user.category]);
 
-  const totalFeesOwed = useMemo(() => { 
-    return (user.feeRequests || []).filter(f => f.status === 'PENDING').reduce((acc, f) => acc + f.amount, 0); 
+  const allFees = useMemo(() => {
+    return (user.feeRequests || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [user.feeRequests]);
+
+  const totalFeesOwed = useMemo(() => { 
+    return allFees.filter(f => f.status === 'PENDING').reduce((acc, f) => acc + f.amount, 0); 
+  }, [allFees]);
 
   const walletBalance = useMemo(() => {
     const cardJobs = myJobs.filter(j => j.paymentStatus === 'PAID' && j.paymentMethod === 'CARD');
@@ -127,27 +199,6 @@ export const ProviderDashboard: React.FC<Props> = ({
     const withdrawn = (user.withdrawals || []).filter(w => w.status === 'APPROVED' || w.status === 'PENDING').reduce((acc, w) => acc + w.amount, 0);
     return Math.max(0, totalCardRevenue - withdrawn);
   }, [myJobs, user.withdrawals]);
-
-  const chartData = useMemo(() => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      return d.toISOString().split('T')[0];
-    });
-
-    return last7Days.map(date => {
-      const dayEarnings = myJobs
-        .filter(j => j.paymentStatus === 'PAID' && j.date.startsWith(date))
-        .reduce((sum, j) => {
-           const amt = j.paymentMethod === 'CARD' ? Math.max(0, (j.price || 0) - PLATFORM_FEE_FLAT) : (j.price || 0);
-           return sum + amt;
-        }, 0);
-      return {
-        name: new Date(date).toLocaleDateString(undefined, { weekday: 'short' }),
-        earnings: dayEarnings
-      };
-    });
-  }, [myJobs]);
 
   const renderContent = () => {
     switch (currentView) {
@@ -201,9 +252,15 @@ export const ProviderDashboard: React.FC<Props> = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-2">
               <div>
                 <h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter">{t('nav_schedule')}</h2>
-                <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mt-1">{activeJobs.length} {t('active_jobs')} në total</p>
+                <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mt-1">{activeJobs.length} {t('active_jobs')} total</p>
               </div>
               <div className="flex items-center gap-3">
+                 <button 
+                   onClick={() => setShowAvailabilityModal(true)}
+                   className="flex items-center gap-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                 >
+                    <CalendarDays size={18} /> {t('manage_availability')}
+                 </button>
                  <div className="bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2.5 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex items-center gap-3">
                     <CalendarIcon size={18} className="text-indigo-600" />
                     <span className="text-xs font-black dark:text-white uppercase tracking-tight">{selectedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
@@ -246,7 +303,7 @@ export const ProviderDashboard: React.FC<Props> = ({
                {jobsForSelectedDate.length === 0 ? (
                  <div className="ml-10 py-20 bg-white dark:bg-gray-800 rounded-[2rem] border border-dashed dark:border-gray-700 flex flex-col items-center justify-center text-gray-400 opacity-40">
                     <Clock size={48} className="mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Nuk ka punë të planifikuara për këtë ditë</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest">No scheduled jobs for this day</p>
                  </div>
                ) : (
                  jobsForSelectedDate.map((job, idx) => {
@@ -333,9 +390,9 @@ export const ProviderDashboard: React.FC<Props> = ({
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{t('total_owed')}</span>
                  </div>
                  <h3 className="text-4xl font-black leading-none mb-3">{formatPrice(totalFeesOwed)}</h3>
-                 <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Pending Platform Commissions</p>
+                 <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Platform Commissions</p>
                  <div className="mt-8 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-black/10 p-3 rounded-xl border border-white/10">
-                   <Info size={16} /> <span>Pay fees to keep account active</span>
+                   <Info size={16} /> <span>Settle fees to keep active</span>
                  </div>
               </div>
 
@@ -344,68 +401,74 @@ export const ProviderDashboard: React.FC<Props> = ({
                  <div>
                    <div className="flex items-center gap-3 mb-8">
                       <div className="p-3 bg-indigo-50 dark:bg-indigo-900/40 rounded-2xl text-indigo-600"><TrendingUp size={24}/></div>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Projected Net</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Projected</span>
                    </div>
                    <h3 className="text-4xl font-black leading-none mb-3 dark:text-white">
                       {formatPrice(myJobs.filter(j => j.status === 'ACCEPTED').reduce((acc, b) => acc + Math.max(0, (b.price || 0) - PLATFORM_FEE_FLAT), 0))}
                    </h3>
-                   <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">From {activeJobs.length} Active Jobs (Net)</p>
-                 </div>
-                 <div className="mt-8 flex gap-2">
-                    <div className="flex-1 bg-gray-50 dark:bg-gray-900 p-3 rounded-xl">
-                       <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Total Jobs</p>
-                       <p className="text-lg font-black dark:text-white leading-none">{user.jobsCompleted}</p>
-                    </div>
-                    <div className="flex-1 bg-gray-50 dark:bg-gray-900 p-3 rounded-xl">
-                       <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Avg Rating</p>
-                       <p className="text-lg font-black dark:text-white leading-none">{user.rating?.toFixed(1)}</p>
-                    </div>
+                   <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">From {activeJobs.length} Active Jobs</p>
                  </div>
               </div>
             </div>
 
+            {/* NEW SECTION: Platform Commissions List for Settlement */}
             <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
-              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50/20">
+              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50/20 dark:bg-gray-900/20">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-50 dark:bg-orange-900/40 text-orange-600 rounded-xl"><DollarSign size={18}/></div>
-                  <h3 className="text-[11px] font-black uppercase tracking-widest dark:text-white">Pending Platform Fees</h3>
+                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl flex items-center justify-center"><Receipt size={20}/></div>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] dark:text-white">Platform Commissions (Cash Bookings)</h3>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto divide-y dark:divide-gray-700 scrollbar-thin max-h-[300px]">
-                {(user.feeRequests || []).filter(f => f.status !== 'PAID').length === 0 ? (
-                  <div className="p-20 text-center text-gray-400">
-                    <CheckCircle2 size={48} className="mx-auto mb-4 opacity-10" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">No outstanding fees</p>
-                  </div>
-                ) : (
-                  (user.feeRequests || [])
-                    .filter(f => f.status !== 'PAID')
-                    .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .map(fee => (
-                      <div key={fee.id} className="p-6 flex flex-col sm:flex-row justify-between items-center gap-6 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-all group">
-                        <div className="flex items-center gap-4 w-full">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${fee.status === 'VERIFYING' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'} transition-transform group-hover:scale-110`}>
-                              <Receipt size={24}/>
+              <div className="flex-1 overflow-x-auto scrollbar-thin">
+                <table className="w-full text-left text-[10px] min-w-[700px]">
+                  <thead className="bg-gray-50/50 dark:bg-gray-900/50 font-black uppercase tracking-widest text-gray-400 border-b dark:border-gray-700">
+                    <tr>
+                      <th className="p-5">{t('date')}</th>
+                      <th className="p-5">{t('service_label')}</th>
+                      <th className="p-5">{t('status')}</th>
+                      <th className="p-5 text-right">{t('amount')}</th>
+                      <th className="p-5 text-center">Veprimet</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y dark:divide-gray-700">
+                    {allFees.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-20 text-center text-gray-400 font-black uppercase tracking-widest italic opacity-20">No commission fees recorded.</td>
+                      </tr>
+                    ) : allFees.map(fee => (
+                      <tr key={fee.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-colors">
+                        <td className="p-5 font-bold text-gray-500">{new Date(fee.date).toLocaleDateString()}</td>
+                        <td className="p-5 font-black uppercase dark:text-white">{t(fee.bookingCategory)}</td>
+                        <td className="p-5">
+                          <Badge status={fee.status} />
+                        </td>
+                        <td className="p-5 text-right font-black text-indigo-600 text-sm">{formatPrice(fee.amount)}</td>
+                        <td className="p-5">
+                          <div className="flex justify-center">
+                            {fee.status === 'PENDING' && onSettleFee && (
+                              <button 
+                                onClick={() => onSettleFee(fee.id)}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest text-[8px] hover:bg-indigo-700 transition-all shadow-lg active:scale-95"
+                              >
+                                <Send size={12}/> Likuido Komisionin
+                              </button>
+                            )}
+                            {fee.status === 'VERIFYING' && (
+                              <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest flex items-center gap-1">
+                                <Clock size={12}/> Duke u verifikuar...
+                              </span>
+                            )}
+                            {fee.status === 'PAID' && (
+                              <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1">
+                                <CheckCircle2 size={12}/> Pagesë e Kryer
+                              </span>
+                            )}
                           </div>
-                          <div>
-                              <p className="text-xs font-black dark:text-white uppercase leading-none mb-2">{t(fee.bookingCategory)}</p>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{new Date(fee.date).toLocaleDateString()}</span>
-                                <Badge status={fee.status} />
-                              </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
-                          <span className="text-xl font-black text-indigo-600 whitespace-nowrap">{formatPrice(fee.amount)}</span>
-                          {fee.status === 'PENDING' && (
-                            <button onClick={() => onSettleFee?.(fee.id)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">
-                              {t('pay_platform')}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -425,6 +488,7 @@ export const ProviderDashboard: React.FC<Props> = ({
 
       <ChatModal isOpen={!!selectedChatBooking} onClose={() => setSelectedChatBooking(null)} booking={selectedChatBooking} currentUser={user} onSendMessage={onSendMessage} onMarkRead={onMarkRead} />
       <WithdrawalModal isOpen={showWithdrawalModal} onClose={() => setShowWithdrawalModal(false)} availableBalance={walletBalance} onWithdraw={onWithdrawFunds} />
+      <AvailabilityModal isOpen={showAvailabilityModal} onClose={() => setShowAvailabilityModal(false)} availability={user.availability} onSave={onUpdateAvailability} />
       <OfferModal isOpen={!!offerBookingId} onClose={() => setOfferBookingId(null)} onSubmit={(min, max) => offerBookingId && onMakeOffer(offerBookingId, min, max)} />
       <JobCompletionModal isOpen={!!completionBooking} onClose={() => setCompletionBooking(null)} booking={completionBooking} onComplete={(id, price) => onUpdateStatus(id, 'COMPLETED', price)} />
       <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} user={user} onSave={onUpdateUser} />
